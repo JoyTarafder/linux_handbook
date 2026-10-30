@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevOps & Linux Interview Master Guide — Big Tech & FAANG Scenarios</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#06080f">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #06080f;
+    --bg-card: rgba(13, 19, 33, 0.75);
+    --bg-card-hover: rgba(18, 26, 46, 0.9);
+    --bg-code: #03060c;
+    --surface: #0a0f1d;
+    --surface2: #131d31;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(56, 189, 248, 0.3);
+    
+    --accent: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.2);
+    --accent2: #a855f7;
+    --accent3: #10b981;
+    --accent4: #f59e0b;
+    --accent5: #f43f5e;
+    
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; color-scheme: dark; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    background-image: 
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(56, 189, 248, 0.12), transparent),
+      radial-gradient(ellipse 60% 40% at 85% 60%, rgba(168, 85, 247, 0.08), transparent),
+      radial-gradient(ellipse 50% 30% at 10% 40%, rgba(16, 185, 129, 0.06), transparent);
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 7px; height: 7px; }
+  ::-webkit-scrollbar-track { background: #04060a; }
+  ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* Reading Progress Bar */
+  .scroll-progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3));
+    z-index: 9999;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+    transition: width 0.1s ease-out;
+  }
+
+  /* Back To Top Button */
+  .back-to-top {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(13, 19, 33, 0.9);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 90;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(12px);
+    transition: all 0.25s;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .back-to-top.visible { opacity: 1; visibility: visible; transform: translateY(0); }
+  .back-to-top:hover {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--accent);
+    transform: translateY(-3px);
+  }
+
+  /* Header / Nav */
+  .sticky-nav {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 1280px;
+    z-index: 100;
+    background: rgba(10, 15, 29, 0.82);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  }
+
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+  }
+  .logo-text {
+    background: linear-gradient(135deg, #ffffff 0%, #38bdf8 50%, #a855f7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .nav-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .nav-back-link:hover {
+    color: #ffffff;
+    background: rgba(56, 189, 248, 0.12);
+    border-color: var(--accent);
+  }
+
+  .nav-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .hero-interview {
+    text-align: center;
+    padding: 130px 20px 60px;
+    max-width: 1000px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .badge-faang {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(168, 85, 247, 0.12);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    border-radius: 100px;
+    padding: 6px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--accent2);
+    margin-bottom: 24px;
+    font-weight: 600;
+  }
+  .hero-interview h1 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(34px, 5.5vw, 68px);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -1.5px;
+    margin-bottom: 20px;
+  }
+  .hero-interview h1 span {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, var(--accent3) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hero-interview p {
+    font-size: 16px;
+    color: var(--text-muted);
+    max-width: 780px;
+    margin: 0 auto 30px;
+  }
+
+  /* Category Filter Pills */
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 40px;
+  }
+  .filter-btn {
+    background: rgba(13, 19, 33, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 8px 16px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filter-btn:hover, .filter-btn.active {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15);
+  }
+
+  /* Search Bar */
+  .search-container {
+    max-width: 600px;
+    margin: 0 auto 50px;
+    position: relative;
+  }
+  .search-box {
+    width: 100%;
+    background: rgba(14, 20, 36, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    padding: 14px 20px 14px 46px;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 15px;
+    outline: none;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    transition: all 0.2s;
+  }
+  .search-box:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+  }
+  .search-icon-svg {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+  }
+
+  /* Main Container */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+  }
+
+  /* Question Accordion Card */
+  .qa-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .qa-card:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+
+  .qa-header {
+    padding: 22px 26px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .qa-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .qa-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .qa-tag.linux { background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); color: var(--accent); }
+  .qa-tag.aws { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--accent4); }
+  .qa-tag.k8s { background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.3); color: var(--accent2); }
+  .qa-tag.scenario { background: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.3); color: var(--accent5); }
+  .qa-tag.faang { background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--accent3); }
+
+  .qa-level {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+  }
+
+  .qa-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.4;
+  }
+  .qa-chevron {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+  }
+  .qa-card.open .qa-chevron {
+    transform: rotate(180deg);
+    background: rgba(56, 189, 248, 0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .qa-body {
+    padding: 0 26px 26px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    display: none;
+    font-size: 14.5px;
+    color: var(--text-muted);
+    line-height: 1.8;
+  }
+  .qa-card.open .qa-body { display: block; padding-top: 20px; }
+
+  /* STAR Method Blocks */
+  .star-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin: 18px 0;
+  }
+  @media(max-width: 768px) {
+    .star-grid { grid-template-columns: 1fr; }
+  }
+  .star-box {
+    background: #040711;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .star-box-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .star-box-title.s { color: var(--accent); }
+  .star-box-title.t { color: var(--accent2); }
+  .star-box-title.a { color: var(--accent4); }
+  .star-box-title.r { color: var(--accent3); }
+
+  /* Code Block inside Answer */
+  .code-snippet {
+    background: #020408;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    overflow-x: auto;
+    margin: 14px 0;
+    color: #38bdf8;
+    line-height: 1.7;
+  }
+  .code-snippet .cmt { color: #64748b; font-style: italic; }
+  .code-snippet .out { color: #94a3b8; }
+  .code-snippet .kw { color: #f59e0b; }
+  .code-snippet .str { color: #34d399; }
+
+  /* Key Takeaway / Interviewer Tip */
+  .interviewer-tip {
+    background: rgba(16, 185, 129, 0.06);
+    border-left: 3px solid var(--accent3);
+    border-radius: 0 10px 10px 0;
+    padding: 12px 18px;
+    margin-top: 16px;
+    font-size: 13.5px;
+    color: #e2e8f0;
+  }
+  .interviewer-tip strong { color: var(--accent3); }
+
+  /* Architecture Flow Diagram */
+  .arch-diagram {
+    background: #020408;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: #38bdf8;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.5;
+    margin: 16px 0;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 22px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: rgba(6, 8, 15, 0.95);
+  }
+
+  /* Master Tab Switcher */
+  .master-view-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 24px 0 20px;
+    flex-wrap: wrap;
+  }
+  .master-tab-btn {
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(15, 23, 42, 0.6);
+    color: var(--text-dim);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(12px);
+  }
+  .master-tab-btn:hover {
+    border-color: rgba(56, 189, 248, 0.4);
+    color: var(--text-main);
+    transform: translateY(-2px);
+  }
+  .master-tab-btn.active {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(168, 85, 247, 0.2));
+    border-color: var(--accent);
+    color: #38bdf8;
+    box-shadow: 0 0 24px rgba(56, 189, 248, 0.2);
+  }
+  .tab-badge {
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .master-tab-btn.active .tab-badge {
+    background: rgba(56, 189, 248, 0.3);
+    color: #e0f2fe;
+  }
+
+  /* Question Bank Controls */
+  .bank-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .bank-options {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .tool-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(15, 23, 42, 0.7);
+    color: #94a3b8;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tool-btn:hover, .tool-btn.active {
+    border-color: var(--accent);
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.15);
+  }
+
+  /* Difficulty Badges */
+  .diff-badge {
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .diff-Junior { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+  .diff-Mid { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+  .diff-Senior { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+  .diff-Staff { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+  /* Bookmark Button */
+  .bookmark-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #64748b;
+    transition: all 0.2s ease;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .bookmark-btn:hover, .bookmark-btn.saved {
+    color: #f59e0b;
+    transform: scale(1.15);
+  }
+
+  /* Load More Button */
+  .load-more-container {
+    text-align: center;
+    margin: 32px 0 20px;
+  }
+  .load-more-btn {
+    padding: 12px 32px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+  .load-more-btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: #38bdf8;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(56, 189, 248, 0.25);
+  }
+
+  /* Flashcard / Quiz Mode styling */
+  .quiz-mode .qa-card .qa-body {
+    display: none !important;
+  }
+  .quiz-mode .qa-card.open .qa-body {
+    display: block !important;
+  }
+
+
+  /* Company Badges for Case Studies */
+  .comp-badge {
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .comp-Google { background: rgba(66, 133, 244, 0.15); color: #60a5fa; border: 1px solid rgba(66, 133, 244, 0.35); }
+  .comp-AWS { background: rgba(255, 153, 0, 0.15); color: #fb923c; border: 1px solid rgba(255, 153, 0, 0.35); }
+  .comp-Meta { background: rgba(24, 119, 242, 0.15); color: #38bdf8; border: 1px solid rgba(24, 119, 242, 0.35); }
+  .comp-Netflix { background: rgba(229, 9, 20, 0.15); color: #f87171; border: 1px solid rgba(229, 9, 20, 0.35); }
+  .comp-Uber { background: rgba(255, 255, 255, 0.1); color: #f1f5f9; border: 1px solid rgba(255, 255, 255, 0.25); }
+  .comp-Cloudflare { background: rgba(243, 128, 32, 0.15); color: #fb923c; border: 1px solid rgba(243, 128, 32, 0.35); }
+  .comp-Stripe { background: rgba(99, 91, 255, 0.15); color: #a78bfa; border: 1px solid rgba(99, 91, 255, 0.35); }
+  .comp-GitHub { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); }
+  .comp-Microsoft { background: rgba(0, 164, 239, 0.15); color: #38bdf8; border: 1px solid rgba(0, 164, 239, 0.35); }
+  .comp-Datadog { background: rgba(113, 44, 165, 0.2); color: #d8b4fe; border: 1px solid rgba(113, 44, 165, 0.4); }
+
+  .sev-badge {
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+  }
+  .sev-1 { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+  .sev-2 { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+  .sev-3 { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+
+
+  /* Mock Simulator Styles */
+  .mock-card {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 24px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+  .mock-timer-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 42px;
+    font-weight: 800;
+    color: #38bdf8;
+    text-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+    letter-spacing: 2px;
+  }
+  .mock-timer-display.warning {
+    color: #f87171;
+    text-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  .mock-eval-btn {
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+  }
+  .mock-eval-btn.needs-work { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+  .mock-eval-btn.good { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
+  .mock-eval-btn.mastered { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
+  .mock-eval-btn:hover { transform: translateY(-2px); filter: brightness(1.2); }
+
+  /* Cram Sheet Grid */
+  .cram-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .cram-item {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 18px;
+    transition: all 0.2s ease;
+  }
+  .cram-item:hover {
+    border-color: rgba(56, 189, 248, 0.35);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  }
+  .cram-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    display: inline-block;
+    margin-bottom: 8px;
+  }
+  .cram-topic {
+    font-weight: 700;
+    font-size: 15px;
+    color: #f1f5f9;
+    margin-bottom: 6px;
+  }
+  .cram-fact {
+    font-size: 13.5px;
+    color: #cbd5e1;
+    line-height: 1.6;
+  }
+
+</style>
+<script src="qa-data.js"></script>
+<script src="case-studies-data.js"></script>
+<script src="career-suite-data.js"></script>
+</head>
+<body>
+
+<div class="scroll-progress-bar" id="scrollProgressBar"></div>
+<button class="back-to-top" id="backToTopBtn" title="Back to Top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<nav class="sticky-nav">
+  <a href="index.html" class="nav-logo">
+    <span>🐧</span>
+    <span class="logo-text">Linux Notes</span>
+  </a>
+
+  <div class="nav-right-actions">
+    <a href="index.html" class="nav-back-link">
+      <span>←</span> Back to Linux Notes
+    </a>
+  </div>
+</nav>
+
+<header class="hero-interview">
+  <div class="badge-faang">🎯 FAANG &amp; Big Tech Interview Preparation</div>
+  <h1>DevOps &amp; SRE <span>Interview Master Guide</span></h1>
+  <p>Real-world scenario-based questions, production outages, root-cause analysis, and architectural designs asked at <strong>AWS, Google, Meta, Netflix, and Uber</strong>.</p>
+
+  <div class="master-view-tabs">
+    <button class="master-tab-btn active" id="tabBank" data-view="bank">
+      <span>📚 1,000+ Question Bank</span>
+      <span class="tab-badge" id="bankBadge">1,080 Qs</span>
+    </button>
+    <button class="master-tab-btn" id="tabScenarios" data-view="scenarios">
+      <span>🚨 500+ FAANG Case Studies</span>
+      <span class="tab-badge" id="scenariosBadge">510 Scenarios</span>
+    </button>
+    <button class="master-tab-btn" id="tabSystemDesign" data-view="design">
+      <span>🏗️ System Design</span>
+      <span class="tab-badge" id="designBadge">205 Blueprints</span>
+    </button>
+    <button class="master-tab-btn" id="tabBehavioral" data-view="behavioral">
+      <span>🎭 Behavioral &amp; Leadership</span>
+      <span class="tab-badge" id="behavioralBadge">105 Scenarios</span>
+    </button>
+    <button class="master-tab-btn" id="tabMock" data-view="mock">
+      <span>⏱️ Mock Simulator</span>
+      <span class="tab-badge" style="background: rgba(239, 68, 68, 0.25); color: #f87171;">Interactive</span>
+    </button>
+    <button class="master-tab-btn" id="tabCram" data-view="cram">
+      <span>⚡ 30-Min Cram Sheet</span>
+      <span class="tab-badge" style="background: rgba(245, 158, 11, 0.25); color: #fbbf24;">50 Golden</span>
+    </button>
+  </div>
+
+  <div class="search-container">
+    <svg class="search-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+    <input type="text" class="search-box" id="interviewSearch" placeholder="Search 1,000+ interview questions, commands, keywords, or topics...">
+  </div>
+
+  <!-- Filter Bar for 1,000+ Master Question Bank -->
+  <div class="filter-bar" id="bankFilterBar">
+    <button class="filter-btn active" data-cat="all">All (1,080)</button>
+    <button class="filter-btn" data-cat="linux-admin">🐧 Linux Admin (100)</button>
+    <button class="filter-btn" data-cat="linux-internals">🧠 Linux Kernel (100)</button>
+    <button class="filter-btn" data-cat="networking">🌐 Networking (100)</button>
+    <button class="filter-btn" data-cat="docker">🐳 Docker (100)</button>
+    <button class="filter-btn" data-cat="kubernetes">☸️ Kubernetes (150)</button>
+    <button class="filter-btn" data-cat="aws-cloud">☁️ AWS Cloud (120)</button>
+    <button class="filter-btn" data-cat="cicd-gitops">🚀 CI/CD &amp; GitOps (90)</button>
+    <button class="filter-btn" data-cat="iac-terraform">🏗️ Terraform (80)</button>
+    <button class="filter-btn" data-cat="observability-sre">📊 SRE (90)</button>
+    <button class="filter-btn" data-cat="devsecops">🛡️ DevSecOps (80)</button>
+    <button class="filter-btn" data-cat="scripting-automation">⚙️ Bash Scripting (70)</button>
+    <button class="filter-btn" data-cat="bookmarks" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">⭐ Starred (<span id="bookmarkCount">0</span>)</button>
+  </div>
+
+    <!-- Filter Bar for 500+ FAANG Case Studies -->
+  <div class="filter-bar" id="scenariosFilterBar" style="display: none;">
+    <button class="filter-btn active" data-company="all">All (510)</button>
+    <button class="filter-btn" data-company="Google">Google (65)</button>
+    <button class="filter-btn" data-company="AWS / Amazon">AWS / Amazon (75)</button>
+    <button class="filter-btn" data-company="Meta / Facebook">Meta / Facebook (60)</button>
+    <button class="filter-btn" data-company="Netflix">Netflix (55)</button>
+    <button class="filter-btn" data-company="Uber">Uber (50)</button>
+    <button class="filter-btn" data-company="Cloudflare">Cloudflare (45)</button>
+    <button class="filter-btn" data-company="Stripe">Stripe (45)</button>
+    <button class="filter-btn" data-company="GitHub / GitLab">GitHub / GitLab (40)</button>
+    <button class="filter-btn" data-company="Microsoft / Apple">Microsoft / Apple (40)</button>
+    <button class="filter-btn" data-company="Datadog / Snowflake / Spotify">Datadog / Spotify (35)</button>
+    <button class="filter-btn" data-company="bookmarks" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">⭐ Starred (<span id="csBookmarkCount">0</span>)</button>
+  </div>
+
+  <div class="bank-controls">
+    <div class="results-counter" id="resultsCounter" style="font-size:13px; color:#94a3b8; font-family:'JetBrains Mono', monospace;">
+      Showing 1,080 questions
+    </div>
+
+    <div class="bank-options">
+      <button class="tool-btn" id="toggleQuizBtn" title="Hide answers to test your knowledge">
+        <span>🧠</span> Quiz Mode: OFF
+      </button>
+      <button class="tool-btn toggle-all-btn" id="toggleAllBtn" title="Expand or Collapse All visible questions">
+        <span>📂</span> Expand All
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="container" id="qaContainer">
+  <!-- 1. Dynamic 1,000+ Question Bank Container -->
+  <div id="bankContainer"></div>
+  <div class="load-more-container" id="loadMoreBankContainer">
+    <button class="load-more-btn" id="loadMoreBankBtn">📥 Load More Questions (+25)</button>
+  </div>
+
+  <!-- 2. Dynamic 500+ FAANG Case Studies Container -->
+  <div id="scenariosContainer" style="display: none;"></div>
+  <div class="load-more-container" id="loadMoreScenariosContainer" style="display: none;">
+    <button class="load-more-btn" id="loadMoreScenariosBtn">📥 Load More Case Studies (+20)</button>
+  </div>
+
+  <!-- 3. Dynamic System Design Blueprints Container -->
+  <div id="designContainer" style="display: none;"></div>
+  <div class="load-more-container" id="loadMoreDesignContainer" style="display: none;">
+    <button class="load-more-btn" id="loadMoreDesignBtn">📥 Load More Blueprints (+15)</button>
+  </div>
+
+  <!-- 4. Dynamic Behavioral Scenarios Container -->
+  <div id="behavioralContainer" style="display: none;"></div>
+  <div class="load-more-container" id="loadMoreBehavioralContainer" style="display: none;">
+    <button class="load-more-btn" id="loadMoreBehavioralBtn">📥 Load More Scenarios (+15)</button>
+  </div>
+
+  <!-- 5. Interactive Mock Interview Simulator Container -->
+  <div id="mockContainer" style="display: none;"></div>
+
+  <!-- 6. 30-Minute Cram Sheet Container -->
+  <div id="cramContainer" style="display: none;"></div>
+</main>
+
+<footer class="footer">
+  <div>🎯 DevOps &amp; Linux Interview Master Guide &nbsp;|&nbsp; <span>Train With Shubham</span></div>
+  <div style="margin-top:6px;color:var(--text-dim)">Designed for Senior DevOps, Cloud &amp; SRE Candidates &nbsp;·&nbsp; Complete Reference</div>
+</footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // Navigation & Container Tabs
+  const tabBank = document.getElementById("tabBank");
+  const tabScenarios = document.getElementById("tabScenarios");
+  const tabSystemDesign = document.getElementById("tabSystemDesign");
+  const tabBehavioral = document.getElementById("tabBehavioral");
+  const tabMock = document.getElementById("tabMock");
+  const tabCram = document.getElementById("tabCram");
+
+  const bankContainer = document.getElementById("bankContainer");
+  const scenariosContainer = document.getElementById("scenariosContainer");
+  const designContainer = document.getElementById("designContainer");
+  const behavioralContainer = document.getElementById("behavioralContainer");
+  const mockContainer = document.getElementById("mockContainer");
+  const cramContainer = document.getElementById("cramContainer");
+
+  const loadMoreBankContainer = document.getElementById("loadMoreBankContainer");
+  const loadMoreScenariosContainer = document.getElementById("loadMoreScenariosContainer");
+  const loadMoreDesignContainer = document.getElementById("loadMoreDesignContainer");
+  const loadMoreBehavioralContainer = document.getElementById("loadMoreBehavioralContainer");
+
+  const loadMoreBankBtn = document.getElementById("loadMoreBankBtn");
+  const loadMoreScenariosBtn = document.getElementById("loadMoreScenariosBtn");
+  const loadMoreDesignBtn = document.getElementById("loadMoreDesignBtn");
+  const loadMoreBehavioralBtn = document.getElementById("loadMoreBehavioralBtn");
+
+  const bankFilterBar = document.getElementById("bankFilterBar");
+  const scenariosFilterBar = document.getElementById("scenariosFilterBar");
+  const searchInput = document.getElementById("interviewSearch");
+  const resultsCounter = document.getElementById("resultsCounter");
+  const toggleQuizBtn = document.getElementById("toggleQuizBtn");
+  const toggleAllBtn = document.getElementById("toggleAllBtn");
+  const bookmarkCountEl = document.getElementById("bookmarkCount");
+  const csBookmarkCountEl = document.getElementById("csBookmarkCount");
+  const progressBar = document.getElementById("scrollProgressBar");
+  const backToTopBtn = document.getElementById("backToTopBtn");
+
+  let currentView = "bank"; // "bank", "scenarios", "design", "behavioral", "mock", "cram"
+  let activeCategory = "all";
+  let activeCompany = "all";
+  let searchQuery = "";
+  let isQuizMode = false;
+  let allExpanded = false;
+
+  let bankLimit = 25;
+  let scenariosLimit = 20;
+  let designLimit = 15;
+  let behavioralLimit = 15;
+
+  // Bookmarks
+  let qaBookmarks = new Set();
+  let csBookmarks = new Set();
+  try {
+    const qSave = localStorage.getItem("devops_qa_bookmarks");
+    if (qSave) qaBookmarks = new Set(JSON.parse(qSave));
+    const csSave = localStorage.getItem("devops_cs_bookmarks");
+    if (csSave) csBookmarks = new Set(JSON.parse(csSave));
+  } catch (e) {}
+
+  function updateBookmarkCounters() {
+    if (bookmarkCountEl) bookmarkCountEl.textContent = qaBookmarks.size;
+    if (csBookmarkCountEl) csBookmarkCountEl.textContent = csBookmarks.size;
+  }
+  updateBookmarkCounters();
+
+  const qaDb = window.DEVOPS_QA_DATABASE || [];
+  const csDb = window.FAANG_CASE_STUDIES || [];
+  const designDb = window.SYSTEM_DESIGN_BLUEPRINTS || [];
+  const behavioralDb = window.BEHAVIORAL_SCENARIOS || [];
+  const cramDb = window.CRAM_SHEET_POINTS || [];
+
+  // Tab Switching
+  const allTabs = [
+    { btn: tabBank, view: "bank", cont: bankContainer, bar: bankFilterBar, load: loadMoreBankContainer },
+    { btn: tabScenarios, view: "scenarios", cont: scenariosContainer, bar: scenariosFilterBar, load: loadMoreScenariosContainer },
+    { btn: tabSystemDesign, view: "design", cont: designContainer, load: loadMoreDesignContainer },
+    { btn: tabBehavioral, view: "behavioral", cont: behavioralContainer, load: loadMoreBehavioralContainer },
+    { btn: tabMock, view: "mock", cont: mockContainer },
+    { btn: tabCram, view: "cram", cont: cramContainer }
+  ];
+
+  allTabs.forEach(t => {
+    t.btn.addEventListener("click", () => {
+      currentView = t.view;
+      allTabs.forEach(ot => {
+        ot.btn.classList.toggle("active", ot.view === currentView);
+        ot.cont.style.display = ot.view === currentView ? "block" : "none";
+        if (ot.load) ot.load.style.display = ot.view === currentView ? "block" : "none";
+        if (ot.bar) ot.bar.style.display = ot.view === currentView ? "flex" : "none";
+      });
+
+      if (currentView === "bank") searchInput.placeholder = "Search 1,000+ interview questions, commands, keywords...";
+      else if (currentView === "scenarios") searchInput.placeholder = "Search 500+ FAANG case studies (BGP, Kinesis, Split-Brain)...";
+      else if (currentView === "design") searchInput.placeholder = "Search 200+ System Design blueprints (Log pipeline, P2P, Vault)...";
+      else if (currentView === "behavioral") searchInput.placeholder = "Search 100+ Behavioral & Leadership scenarios (Ownership, Conflict)...";
+      else if (currentView === "cram") searchInput.placeholder = "Search 50 Golden 30-Minute Cram rules & reflex commands...";
+      else searchInput.placeholder = "Search questions and topics...";
+
+      applyFilters();
+    });
+  });
+
+  // Category Filters
+  bankFilterBar.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      bankFilterBar.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeCategory = btn.dataset.cat;
+      bankLimit = 25;
+      applyFilters();
+    });
+  });
+
+  scenariosFilterBar.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      scenariosFilterBar.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeCompany = btn.dataset.company;
+      scenariosLimit = 20;
+      applyFilters();
+    });
+  });
+
+  // Search input
+  let searchTimeout;
+  searchInput.addEventListener("input", () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      searchQuery = searchInput.value.toLowerCase().trim();
+      bankLimit = 25;
+      scenariosLimit = 20;
+      designLimit = 15;
+      behavioralLimit = 15;
+      applyFilters();
+    }, 150);
+  });
+
+  toggleQuizBtn.addEventListener("click", () => {
+    isQuizMode = !isQuizMode;
+    document.body.classList.toggle("quiz-mode", isQuizMode);
+    toggleQuizBtn.classList.toggle("active", isQuizMode);
+    toggleQuizBtn.innerHTML = isQuizMode ? "<span>🧠</span> Quiz Mode: ON" : "<span>🧠</span> Quiz Mode: OFF";
+  });
+
+  toggleAllBtn.addEventListener("click", () => {
+    allExpanded = !allExpanded;
+    let activeCont = bankContainer;
+    if (currentView === "scenarios") activeCont = scenariosContainer;
+    else if (currentView === "design") activeCont = designContainer;
+    else if (currentView === "behavioral") activeCont = behavioralContainer;
+
+    activeCont.querySelectorAll(".qa-card").forEach(card => {
+      card.classList.toggle("open", allExpanded);
+    });
+    toggleAllBtn.innerHTML = allExpanded ? "<span>📁</span> Collapse All" : "<span>📂</span> Expand All";
+  });
+
+  loadMoreBankBtn.addEventListener("click", () => {
+    bankLimit += 25;
+    renderBankQuestions();
+  });
+  loadMoreScenariosBtn.addEventListener("click", () => {
+    scenariosLimit += 20;
+    renderScenarios();
+  });
+  if (loadMoreDesignBtn) {
+    loadMoreDesignBtn.addEventListener("click", () => {
+      designLimit += 15;
+      renderSystemDesigns();
+    });
+  }
+  if (loadMoreBehavioralBtn) {
+    loadMoreBehavioralBtn.addEventListener("click", () => {
+      behavioralLimit += 15;
+      renderBehavioral();
+    });
+  }
+
+  function applyFilters() {
+    if (currentView === "bank") renderBankQuestions();
+    else if (currentView === "scenarios") renderScenarios();
+    else if (currentView === "design") renderSystemDesigns();
+    else if (currentView === "behavioral") renderBehavioral();
+    else if (currentView === "mock") renderMockSimulator();
+    else if (currentView === "cram") renderCramSheet();
+  }
+
+  // 1. Render Bank Questions
+  function renderBankQuestions() {
+    const filtered = qaDb.filter(item => {
+      if (activeCategory === "bookmarks") {
+        if (!qaBookmarks.has(item.id)) return false;
+      } else if (activeCategory !== "all" && item.category !== activeCategory) {
+        return false;
+      }
+      if (searchQuery !== "") {
+        const text = (item.title + " " + item.answer + " " + item.categoryLabel + " " + (item.tags || []).join(" ")).toLowerCase();
+        if (!text.includes(searchQuery)) return false;
+      }
+      return true;
+    });
+
+    const count = filtered.length;
+    resultsCounter.textContent = `Showing ${Math.min(bankLimit, count)} of ${count} questions (Total: ${qaDb.length})`;
+    loadMoreBankContainer.style.display = bankLimit >= count ? "none" : "block";
+
+    const visibleItems = filtered.slice(0, bankLimit);
+    if (visibleItems.length === 0) {
+      bankContainer.innerHTML = emptyStateHtml("No matching questions found", "Try different keywords or select 'All (1,080)'");
+      return;
+    }
+
+    let buf = "";
+    visibleItems.forEach((item, idx) => {
+      const isStarred = qaBookmarks.has(item.id);
+      const isCardOpen = (allExpanded || (idx === 0 && searchQuery === "" && bankLimit === 25)) ? "open" : "";
+      const diffClass = `diff-${item.difficulty || "Mid"}`;
+
+      buf += `
+      <article class="qa-card ${isCardOpen}" data-id="${item.id}">
+        <div class="qa-header">
+          <div style="flex: 1; padding-right: 12px;">
+            <div class="qa-meta">
+              <span class="qa-tag scenario">${escapeHtml(item.categoryLabel || item.category)}</span>
+              <span class="diff-badge ${diffClass}">${item.difficulty || "Mid"}</span>
+              <span class="qa-level">#${item.id}</span>
+            </div>
+            <h3 class="qa-title">${escapeHtml(item.title)}</h3>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button class="bookmark-btn ${isStarred ? "saved" : ""}" title="Bookmark this question" onclick="event.stopPropagation(); window.toggleQaBookmark(${item.id}, this)">
+              ${isStarred ? "★" : "☆"}
+            </button>
+            <div class="qa-chevron">▼</div>
+          </div>
+        </div>
+        <div class="qa-body">
+          <div style="line-height: 1.75; color: #e2e8f0; font-size: 14px;">
+            ${item.answer}
+          </div>
+          ${item.tags && item.tags.length ? `
+            <div style="margin-top: 14px; display: flex; gap: 6px; flex-wrap: wrap;">
+              ${item.tags.map(t => `<span style="font-family:'JetBrains Mono',monospace; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.06); color:#94a3b8;">#${escapeHtml(t)}</span>`).join("")}
+            </div>` : ""}
+        </div>
+      </article>`;
+    });
+
+    bankContainer.innerHTML = buf;
+    attachAccordions(bankContainer);
+  }
+
+  // 2. Render 500+ FAANG Scenarios
+  function renderScenarios() {
+    const filtered = csDb.filter(item => {
+      if (activeCompany === "bookmarks") {
+        if (!csBookmarks.has(item.id)) return false;
+      } else if (activeCompany !== "all") {
+        if (!item.company.includes(activeCompany)) return false;
+      }
+      if (searchQuery !== "") {
+        const text = (item.title + " " + item.company + " " + item.category + " " + item.situation + " " + item.action + " " + (item.tags || []).join(" ")).toLowerCase();
+        if (!text.includes(searchQuery)) return false;
+      }
+      return true;
+    });
+
+    const count = filtered.length;
+    resultsCounter.textContent = `Showing ${Math.min(scenariosLimit, count)} of ${count} FAANG Case Studies (Total: ${csDb.length})`;
+    loadMoreScenariosContainer.style.display = scenariosLimit >= count ? "none" : "block";
+
+    const visibleItems = filtered.slice(0, scenariosLimit);
+    if (visibleItems.length === 0) {
+      scenariosContainer.innerHTML = emptyStateHtml("No matching case studies found", "Try different search terms or select 'All (510)'");
+      return;
+    }
+
+    let buf = "";
+    visibleItems.forEach((item, idx) => {
+      const isStarred = csBookmarks.has(item.id);
+      const isCardOpen = (allExpanded || (idx === 0 && searchQuery === "" && scenariosLimit === 20)) ? "open" : "";
+      const compClass = getCompanyClass(item.company);
+      const sevClass = item.severity.includes("SEV-1") ? "sev-1" : (item.severity.includes("SEV-2") ? "sev-2" : "sev-3");
+
+      buf += `
+      <article class="qa-card ${isCardOpen}" data-id="${item.id}">
+        <div class="qa-header">
+          <div style="flex: 1; padding-right: 12px;">
+            <div class="qa-meta">
+              <span class="comp-badge ${compClass}">${escapeHtml(item.company)}</span>
+              <span class="sev-badge ${sevClass}">${escapeHtml(item.severity)}</span>
+              <span class="qa-tag scenario">${escapeHtml(item.category)}</span>
+              <span class="qa-level">Case #${item.id}</span>
+            </div>
+            <h3 class="qa-title">${escapeHtml(item.title)}</h3>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button class="bookmark-btn ${isStarred ? "saved" : ""}" title="Bookmark this case study" onclick="event.stopPropagation(); window.toggleCsBookmark(${item.id}, this)">
+              ${isStarred ? "★" : "☆"}
+            </button>
+            <div class="qa-chevron">▼</div>
+          </div>
+        </div>
+        <div class="qa-body">
+          <div class="star-grid">
+            <div class="star-box">
+              <div class="star-box-title s">S — Situation</div>
+              <p>${escapeHtml(item.situation)}</p>
+            </div>
+            <div class="star-box">
+              <div class="star-box-title t">T — Task</div>
+              <p>${escapeHtml(item.task)}</p>
+            </div>
+          </div>
+
+          <div class="star-box" style="margin-top: 14px;">
+            <div class="star-box-title a">A — Technical Action & Triage</div>
+            <div style="line-height: 1.7; font-size: 13.5px; white-space: pre-line; color: #cbd5e1;">${escapeHtml(item.action)}</div>
+          </div>
+
+          <div class="star-box" style="margin-top: 14px;">
+            <div class="star-box-title r">R — Result & Metrics</div>
+            <p style="color: #34d399; font-weight: 500;">${escapeHtml(item.result)}</p>
+          </div>
+
+          ${item.architecture ? `<div class="arch-diagram">${escapeHtml(item.architecture)}</div>` : ""}
+
+          ${item.interviewerTip ? `
+            <div class="interviewer-tip">
+              <strong>💡 Interviewer Takeaway:</strong> ${escapeHtml(item.interviewerTip)}
+            </div>` : ""}
+
+          ${item.tags && item.tags.length ? `
+            <div style="margin-top: 14px; display: flex; gap: 6px; flex-wrap: wrap;">
+              ${item.tags.map(t => `<span style="font-family:'JetBrains Mono',monospace; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.06); color:#94a3b8;">#${escapeHtml(t)}</span>`).join("")}
+            </div>` : ""}
+        </div>
+      </article>`;
+    });
+
+    scenariosContainer.innerHTML = buf;
+    attachAccordions(scenariosContainer);
+  }
+
+  // 3. Render 200+ System Design Blueprints with Pagination
+  function renderSystemDesigns() {
+    const filtered = designDb.filter(item => {
+      if (searchQuery !== "") {
+        const text = (item.title + " " + item.scale + " " + item.deepDive + " " + (item.tags || []).join(" ")).toLowerCase();
+        if (!text.includes(searchQuery)) return false;
+      }
+      return true;
+    });
+
+    const count = filtered.length;
+    resultsCounter.textContent = `Showing ${Math.min(designLimit, count)} of ${count} System Design Blueprints (Total: ${designDb.length})`;
+    if (loadMoreDesignContainer) {
+      loadMoreDesignContainer.style.display = designLimit >= count ? "none" : "block";
+    }
+
+    const visibleItems = filtered.slice(0, designLimit);
+    if (visibleItems.length === 0) {
+      designContainer.innerHTML = emptyStateHtml("No matching blueprints found", "Try different search terms or explore all blueprints");
+      return;
+    }
+
+    let buf = "";
+    visibleItems.forEach((item, idx) => {
+      const isCardOpen = (allExpanded || (idx === 0 && searchQuery === "" && designLimit === 15)) ? "open" : "";
+      buf += `
+      <article class="qa-card ${isCardOpen}">
+        <div class="qa-header">
+          <div style="flex: 1; padding-right: 12px;">
+            <div class="qa-meta">
+              <span class="qa-tag scenario" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border-color: rgba(168, 85, 247, 0.3);">System Design</span>
+              <span class="qa-level">Blueprint #${item.id}</span>
+            </div>
+            <h3 class="qa-title">${escapeHtml(item.title)}</h3>
+            <div style="font-size: 12.5px; color: #38bdf8; margin-top: 4px; font-family:'JetBrains Mono', monospace;">📊 Scale: ${escapeHtml(item.scale)}</div>
+          </div>
+          <div class="qa-chevron">▼</div>
+        </div>
+        <div class="qa-body">
+          <div class="star-box">
+            <div class="star-box-title s">Key System Requirements</div>
+            <ul style="padding-left: 20px; margin: 8px 0; color: #e2e8f0; line-height: 1.7;">
+              ${item.requirements.map(r => `<li>${escapeHtml(r)}</li>`).join("")}
+            </ul>
+          </div>
+
+          <div class="arch-diagram">${escapeHtml(item.architectureDiagram)}</div>
+
+          <div class="star-box" style="margin-top: 14px;">
+            <div class="star-box-title a">Deep Dive & Architectural Trade-offs</div>
+            <div style="line-height: 1.7; font-size: 13.5px; white-space: pre-line; color: #cbd5e1;">${item.deepDive}</div>
+          </div>
+
+          <div class="star-box" style="margin-top: 14px;">
+            <div class="star-box-title r">Failure Modes & Self-Healing Bottlenecks</div>
+            <div style="line-height: 1.7; font-size: 13.5px; white-space: pre-line; color: #f87171;">${item.failureModes}</div>
+          </div>
+          ${item.tags && item.tags.length ? `
+            <div style="margin-top: 14px; display: flex; gap: 6px; flex-wrap: wrap;">
+              ${item.tags.map(t => `<span style="font-family:'JetBrains Mono',monospace; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.06); color:#94a3b8;">#${escapeHtml(t)}</span>`).join("")}
+            </div>` : ""}
+        </div>
+      </article>`;
+    });
+
+    designContainer.innerHTML = buf;
+    attachAccordions(designContainer);
+  }
+
+  // 4. Render 100+ Behavioral Scenarios with Pagination
+  function renderBehavioral() {
+    const filtered = behavioralDb.filter(item => {
+      if (searchQuery !== "") {
+        const text = (item.question + " " + item.category + " " + item.company + " " + item.starAnswer.action).toLowerCase();
+        if (!text.includes(searchQuery)) return false;
+      }
+      return true;
+    });
+
+    const count = filtered.length;
+    resultsCounter.textContent = `Showing ${Math.min(behavioralLimit, count)} of ${count} Behavioral Scenarios (Total: ${behavioralDb.length})`;
+    if (loadMoreBehavioralContainer) {
+      loadMoreBehavioralContainer.style.display = behavioralLimit >= count ? "none" : "block";
+    }
+
+    const visibleItems = filtered.slice(0, behavioralLimit);
+    if (visibleItems.length === 0) {
+      behavioralContainer.innerHTML = emptyStateHtml("No matching behavioral scenarios found", "Try searching for leadership terms or explore all");
+      return;
+    }
+
+    let buf = "";
+    visibleItems.forEach((item, idx) => {
+      const isCardOpen = (allExpanded || (idx === 0 && searchQuery === "" && behavioralLimit === 15)) ? "open" : "";
+      buf += `
+      <article class="qa-card ${isCardOpen}">
+        <div class="qa-header">
+          <div style="flex: 1; padding-right: 12px;">
+            <div class="qa-meta">
+              <span class="qa-tag scenario" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3);">${escapeHtml(item.company)}</span>
+              <span class="qa-level">${escapeHtml(item.category)}</span>
+            </div>
+            <h3 class="qa-title">${escapeHtml(item.question)}</h3>
+          </div>
+          <div class="qa-chevron">▼</div>
+        </div>
+        <div class="qa-body">
+          <div class="star-grid">
+            <div class="star-box">
+              <div class="star-box-title s">S — Situation</div>
+              <p>${escapeHtml(item.starAnswer.situation)}</p>
+            </div>
+            <div class="star-box">
+              <div class="star-box-title t">T — Task</div>
+              <p>${escapeHtml(item.starAnswer.task)}</p>
+            </div>
+          </div>
+          <div class="star-box" style="margin-top: 14px;">
+            <div class="star-box-title a">A — Action (Leadership & Impact)</div>
+            <div style="line-height: 1.7; font-size: 13.5px; white-space: pre-line; color: #cbd5e1;">${escapeHtml(item.starAnswer.action)}</div>
+          </div>
+          <div class="star-box" style="margin-top: 14px;">
+            <div class="star-box-title r">R — Result (Quantified Business Impact)</div>
+            <p style="color: #34d399; font-weight: 500;">${escapeHtml(item.starAnswer.result)}</p>
+          </div>
+          <div class="interviewer-tip">
+            <strong>💡 Executive Coach Tip:</strong> ${escapeHtml(item.interviewerTip)}
+          </div>
+          ${item.tags && item.tags.length ? `
+            <div style="margin-top: 14px; display: flex; gap: 6px; flex-wrap: wrap;">
+              ${item.tags.map(t => `<span style="font-family:'JetBrains Mono',monospace; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.06); color:#94a3b8;">#${escapeHtml(t)}</span>`).join("")}
+            </div>` : ""}
+        </div>
+      </article>`;
+    });
+
+    behavioralContainer.innerHTML = buf;
+    attachAccordions(behavioralContainer);
+  }
+
+  // 5. Render Mock Simulator
+  let mockState = {
+    active: false,
+    questions: [],
+    currentIndex: 0,
+    timerSeconds: 120,
+    timerInterval: null,
+    scores: []
+  };
+
+  function renderMockSimulator() {
+    resultsCounter.textContent = "Interactive Real-Time Mock Simulator";
+
+    if (!mockState.active) {
+      mockContainer.innerHTML = `
+      <div class="mock-card" style="text-align: center; max-width: 700px; margin: 0 auto;">
+        <div style="font-size: 48px; margin-bottom: 12px;">🎯</div>
+        <h2 style="color: #f1f5f9; font-size: 24px; margin-bottom: 10px;">DevOps & SRE Mock Interview Simulator</h2>
+        <p style="color: #94a3b8; font-size: 14.5px; line-height: 1.7; margin-bottom: 24px;">
+          Practice answering real technical questions under realistic FAANG time constraints. Speak your answer aloud, then reveal the model answer and evaluate your performance score!
+        </p>
+
+        <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 28px;">
+          <button class="load-more-btn" id="startQuickMockBtn" style="background: rgba(56, 189, 248, 0.15);">
+            ⚡ Quick Drill (5 Questions · 2m each)
+          </button>
+          <button class="load-more-btn" id="startFaangMockBtn" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe;">
+            🏢 FAANG SRE Outage Drill (5 Scenarios · 3m each)
+          </button>
+        </div>
+      </div>`;
+
+      document.getElementById("startQuickMockBtn").addEventListener("click", () => startMockSession("qa", 5, 120));
+      document.getElementById("startFaangMockBtn").addEventListener("click", () => startMockSession("cs", 5, 180));
+    } else {
+      renderActiveMockQuestion();
+    }
+  }
+
+  function startMockSession(type, count, timePerQ) {
+    const pool = type === "qa" ? qaDb : csDb;
+    const shuffled = [...pool].sort(() => 0.5 - Math.random());
+    mockState.questions = shuffled.slice(0, count);
+    mockState.currentIndex = 0;
+    mockState.timePerQ = timePerQ;
+    mockState.timerSeconds = timePerQ;
+    mockState.scores = [];
+    mockState.active = true;
+    startTimer();
+    renderActiveMockQuestion();
+  }
+
+  function startTimer() {
+    clearInterval(mockState.timerInterval);
+    mockState.timerInterval = setInterval(() => {
+      mockState.timerSeconds--;
+      const timerEl = document.getElementById("mockTimer");
+      if (timerEl) {
+        const m = Math.floor(mockState.timerSeconds / 60);
+        const s = mockState.timerSeconds % 60;
+        timerEl.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        timerEl.classList.toggle("warning", mockState.timerSeconds <= 30);
+      }
+      if (mockState.timerSeconds <= 0) {
+        clearInterval(mockState.timerInterval);
+      }
+    }, 1000);
+  }
+
+  function renderActiveMockQuestion() {
+    const q = mockState.questions[mockState.currentIndex];
+    const total = mockState.questions.length;
+
+    const m = Math.floor(mockState.timerSeconds / 60);
+    const s = mockState.timerSeconds % 60;
+    const timerStr = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+    mockContainer.innerHTML = `
+    <div class="mock-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px; margin-bottom: 20px;">
+        <div>
+          <span class="qa-tag scenario">Question ${mockState.currentIndex + 1} of ${total}</span>
+          <span style="font-size: 13px; color: #94a3b8; margin-left: 10px;">${escapeHtml(q.categoryLabel || q.company || "")}</span>
+        </div>
+        <div class="mock-timer-display" id="mockTimer">${timerStr}</div>
+      </div>
+
+      <h2 style="color: #f8fafc; font-size: 20px; line-height: 1.5; margin-bottom: 24px;">
+        ${escapeHtml(q.title || q.question)}
+      </h2>
+
+      <div style="background: rgba(2,6,23,0.6); border: 1px dashed rgba(255,255,255,0.15); border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: center;">
+        <p style="color: #94a3b8; font-size: 14px; margin-bottom: 12px;">🎙️ Speak your answer aloud using the STAR framework or step-by-step triage methodology.</p>
+        <button class="load-more-btn" id="revealAnswerBtn" style="padding: 10px 24px; font-size: 13px;">
+          👁️ Reveal Model Answer & Evaluation Criteria
+        </button>
+      </div>
+
+      <div id="mockAnswerBox" style="display: none; margin-bottom: 24px; animation: fadeIn 0.3s ease;">
+        <div style="background: #020408; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 20px; line-height: 1.7; color: #e2e8f0; font-size: 14px;">
+          <h4 style="color: #38bdf8; margin-bottom: 10px;">Model Solution & Key Points:</h4>
+          ${q.answer || `
+            <p><strong>Situation:</strong> ${escapeHtml(q.situation || "")}</p>
+            <p><strong>Action:</strong> ${escapeHtml(q.action || "")}</p>
+            <p style="color: #34d399;"><strong>Result:</strong> ${escapeHtml(q.result || "")}</p>
+          `}
+        </div>
+
+        <div style="margin-top: 20px; text-align: center;">
+          <p style="color: #cbd5e1; font-size: 13px; margin-bottom: 10px; font-weight: 600;">Self-Evaluate Your Response:</p>
+          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <button class="mock-eval-btn needs-work" onclick="window.rateMockQuestion(1)">❌ Needs Work (1 pt)</button>
+            <button class="mock-eval-btn good" onclick="window.rateMockQuestion(3)">⚠️ Good / Minor Gaps (3 pts)</button>
+            <button class="mock-eval-btn mastered" onclick="window.rateMockQuestion(5)">✅ Mastered / FAANG Ready (5 pts)</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    document.getElementById("revealAnswerBtn").addEventListener("click", () => {
+      document.getElementById("mockAnswerBox").style.display = "block";
+      document.getElementById("revealAnswerBtn").style.display = "none";
+    });
+  }
+
+  window.rateMockQuestion = function(points) {
+    mockState.scores.push(points);
+    if (mockState.currentIndex < mockState.questions.length - 1) {
+      mockState.currentIndex++;
+      mockState.timerSeconds = mockState.timePerQ;
+      startTimer();
+      renderActiveMockQuestion();
+    } else {
+      clearInterval(mockState.timerInterval);
+      renderMockResults();
+    }
+  };
+
+  function renderMockResults() {
+    const totalPossible = mockState.questions.length * 5;
+    const earned = mockState.scores.reduce((a, b) => a + b, 0);
+    const pct = Math.round((earned / totalPossible) * 100);
+
+    let rating = "Needs More Preparation";
+    let badgeColor = "#f87171";
+    if (pct >= 85) { rating = "Strong Hire (FAANG Ready! 🎉)"; badgeColor = "#34d399"; }
+    else if (pct >= 70) { rating = "Solid Hire (Senior Level)"; badgeColor = "#38bdf8"; }
+    else if (pct >= 50) { rating = "Borderline (Brush up on weak topics)"; badgeColor = "#fbbf24"; }
+
+    mockContainer.innerHTML = `
+    <div class="mock-card" style="text-align: center; max-width: 650px; margin: 0 auto;">
+      <div style="font-size: 54px; margin-bottom: 12px;">🏆</div>
+      <h2 style="color: #f1f5f9; font-size: 24px; margin-bottom: 8px;">Mock Session Complete!</h2>
+      <div style="font-size: 48px; font-weight: 800; color: ${badgeColor}; font-family:'JetBrains Mono', monospace; margin: 16px 0;">
+        ${earned} / ${totalPossible} <span style="font-size: 24px;">(${pct}%)</span>
+      </div>
+      <div style="font-size: 18px; font-weight: 700; color: ${badgeColor}; margin-bottom: 24px;">
+        Rating: ${rating}
+      </div>
+      <p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+        Great effort! Review the 30-Minute Cram Sheet or explore the 500+ FAANG Case Studies to strengthen any areas where you hesitated.
+      </p>
+      <button class="load-more-btn" onclick="window.resetMockSession()">
+        🔄 Start Another Mock Session
+      </button>
+    </div>`;
+  }
+
+  window.resetMockSession = function() {
+    mockState.active = false;
+    renderMockSimulator();
+  };
+
+  // 6. Render 30-Minute Cram Sheet
+  function renderCramSheet() {
+    const filtered = cramDb.filter(item => {
+      if (searchQuery !== "") {
+        const text = (item.topic + " " + item.fact).toLowerCase();
+        if (!text.includes(searchQuery)) return false;
+      }
+      return true;
+    });
+
+    resultsCounter.textContent = `Showing ${filtered.length} of ${cramDb.length} Golden Reflex Rules`;
+
+    let buf = '<div class="cram-grid">';
+    filtered.forEach(item => {
+      buf += `
+      <div class="cram-item">
+        <span class="cram-num">Rule #${item.num}</span>
+        <div class="cram-topic">${escapeHtml(item.topic)}</div>
+        <div class="cram-fact">${item.fact}</div>
+      </div>`;
+    });
+    buf += '</div>';
+
+    cramContainer.innerHTML = buf;
+  }
+
+  // Helper Functions
+  function getCompanyClass(comp) {
+    if (comp.includes("Google")) return "comp-Google";
+    if (comp.includes("AWS")) return "comp-AWS";
+    if (comp.includes("Meta")) return "comp-Meta";
+    if (comp.includes("Netflix")) return "comp-Netflix";
+    if (comp.includes("Uber")) return "comp-Uber";
+    if (comp.includes("Cloudflare")) return "comp-Cloudflare";
+    if (comp.includes("Stripe")) return "comp-Stripe";
+    if (comp.includes("Git")) return "comp-GitHub";
+    if (comp.includes("Microsoft") || comp.includes("Apple")) return "comp-Microsoft";
+    return "comp-Datadog";
+  }
+
+  function attachAccordions(container) {
+    container.querySelectorAll(".qa-header").forEach(hdr => {
+      hdr.addEventListener("click", () => {
+        hdr.closest(".qa-card").classList.toggle("open");
+      });
+    });
+  }
+
+  function emptyStateHtml(title, desc) {
+    return `
+      <div style="text-align: center; padding: 60px 20px; background: rgba(15,23,42,0.4); border-radius: 16px; border: 1px dashed rgba(255,255,255,0.15);">
+        <div style="font-size: 40px; margin-bottom: 12px;">🔍</div>
+        <h3 style="color: #f1f5f9; margin-bottom: 8px;">${title}</h3>
+        <p style="color: #94a3b8; font-size: 14px;">${desc}</p>
+      </div>`;
+  }
+
+  window.toggleQaBookmark = function(id, btn) {
+    if (qaBookmarks.has(id)) {
+      qaBookmarks.delete(id);
+      btn.classList.remove("saved");
+      btn.textContent = "☆";
+    } else {
+      qaBookmarks.add(id);
+      btn.classList.add("saved");
+      btn.textContent = "★";
+    }
+    localStorage.setItem("devops_qa_bookmarks", JSON.stringify([...qaBookmarks]));
+    updateBookmarkCounters();
+    if (activeCategory === "bookmarks") renderBankQuestions();
+  };
+
+  window.toggleCsBookmark = function(id, btn) {
+    if (csBookmarks.has(id)) {
+      csBookmarks.delete(id);
+      btn.classList.remove("saved");
+      btn.textContent = "☆";
+    } else {
+      csBookmarks.add(id);
+      btn.classList.add("saved");
+      btn.textContent = "★";
+    }
+    localStorage.setItem("devops_cs_bookmarks", JSON.stringify([...csBookmarks]));
+    updateBookmarkCounters();
+    if (activeCompany === "bookmarks") renderScenarios();
+  };
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  window.addEventListener("scroll", () => {
+    const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const progress = (window.scrollY / totalHeight) * 100;
+    if (progressBar) progressBar.style.width = `${progress}%`;
+    if (backToTopBtn) {
+      if (window.scrollY > 300) backToTopBtn.classList.add("visible");
+      else backToTopBtn.classList.remove("visible");
+    }
+  });
+
+  // Initial render
+  renderBankQuestions();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(err => {
+        console.log('[SW] Registration failed:', err);
+      });
+    });
+  }
+});
+</script>
+</body>
+</html>
