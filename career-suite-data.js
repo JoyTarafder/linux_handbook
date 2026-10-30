@@ -1,4 +1,4 @@
-// DevOps Career Suite Dataset: 200+ System Design, 100+ Behavioral & 30-Min Cram Sheet
+// DevOps Career Suite Dataset: 255 System Design (50+ AWS), 105 Behavioral & 30-Min Cram Sheet
 window.SYSTEM_DESIGN_BLUEPRINTS = [
   {
     "id": 1,
@@ -213,7 +213,1063 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 11,
+    "title": "AWS Multi-Tier Multi-AZ VPC Enterprise Architecture",
+    "scale": "50,000 requests/sec, 99.99% availability, Multi-AZ fault tolerance across 3 AZs",
+    "requirements": [
+      "Zero public IP exposure for application compute and database layers",
+      "Dedicated NAT Gateway per Availability Zone for high availability",
+      "Multi-AZ Amazon Aurora PostgreSQL with sub-minute automatic failover",
+      "Centralized ingress inspection with AWS Network Firewall"
+    ],
+    "architectureDiagram": "\n[Internet Users]\n       │\n       ▼ (HTTPS 443)\n[Route 53 Hosted Zone] ── (Alias Record with Latency Routing)\n       │\n       ▼\n[AWS WAF (Web ACL)] ── (OWASP Top 10 + Rate Limiting Rules)\n       │\n       ▼\n[Public Subnets: Multi-AZ (AZ-A, AZ-B, AZ-C)]\n  • Application Load Balancer (ALB)\n  • NAT Gateway A, NAT Gateway B, NAT Gateway C (1 per AZ)\n  • Internet Gateway (IGW)\n       │ (Target Group Forwarding: Internal)\n       ▼\n[Private App Subnets: Multi-AZ]\n  • Auto Scaling Group (ASG) of EC2 / EKS Worker Nodes\n  • ElastiCache (Redis) Cluster (Multi-AZ with Auto-Failover)\n  • Egress via respective AZ NAT Gateway\n       │ (Port 5432)\n       ▼\n[Isolated Database Subnets: Multi-AZ (No Internet Route)]\n  • Amazon Aurora PostgreSQL Primary (AZ-A)\n  • Amazon Aurora PostgreSQL Read Replica (AZ-B)\n  • Amazon Aurora PostgreSQL Read Replica (AZ-C)\n  • Shared Distributed Storage Volume (Replicated 6 ways across 3 AZs)\n",
+    "deepDive": "• **High Availability Networking**: Deploying one NAT Gateway per AZ prevents a single AZ outage from taking down internet egress for all private instances.\n• **Aurora Shared Storage Architecture**: Decouples compute from storage. Read replicas read directly from the same 6-way replicated storage volume with sub-10ms replica lag.\n• **Least-Privilege Security Groups**: Database security group accepts ingress on port 5432 strictly from the App Security Group ID, never from IP CIDRs.",
+    "failureModes": "• NAT Gateway saturation -> Use VPC Gateway Endpoints for S3/DynamoDB and Interface Endpoints (PrivateLink) for AWS services to bypass NAT Gateways completely.\n• Primary DB crash -> Aurora auto-promotes reader replica within 30-60 seconds without data loss.",
+    "tags": [
+      "aws",
+      "vpc",
+      "aurora",
+      "alb",
+      "system-design",
+      "multi-az"
+    ],
+    "id": 11
+  },
+  {
+    "title": "AWS Serverless Event-Driven Microservices Architecture",
+    "scale": "100,000 events/sec, sub-100ms processing latency, zero server maintenance, pay-per-use",
+    "requirements": [
+      "Asynchronous decoupled event processing using Amazon EventBridge",
+      "Single-digit millisecond latency persistence using Amazon DynamoDB",
+      "Dead-Letter Queues (DLQ) with automated alarm escalation for failed executions",
+      "Mitigation of Lambda Cold Starts for user-facing synchronous APIs"
+    ],
+    "architectureDiagram": "\n[Client / Webhook / Partner API]\n       │\n       ▼ (REST / HTTP API)\n[Amazon API Gateway (Regional / Edge)]\n  • JWT Cognito Authorizer\n  • Usage Plans & API Keys\n  • Throttling (10,000 RPS burst)\n       │\n       ├─────────────────────────────────┐ (Async Event Ingest)\n       ▼ (Sync User Requests)            ▼\n[AWS Lambda (ARM64 Graviton)]     [Amazon EventBridge Event Bus]\n  • Provisioned Concurrency         • Rule Filtering & Content Routing\n  • Python / Go Runtime             • Archive & Replay Capability\n       │                                 │\n       │                                 ├─────────────────────────┐\n       ▼                                 ▼                         ▼\n[Amazon DynamoDB (On-Demand)]     [Amazon SQS (DLQ)]       [AWS Step Functions]\n  • Single-Table Design             • Exponential Backoff    • Distributed Saga\n  • DynamoDB Streams Enabled        • CloudWatch Alarm       • Order Orchestration\n",
+    "deepDive": "• **EventBridge Routing**: Decouples microservices. Order service publishes `OrderPlaced` event; Billing, Inventory, and Notification services subscribe independently without point-to-point coupling.\n• **Provisioned Concurrency**: Keeps microVM execution environments pre-warmed, eliminating Lambda cold starts for p99 latency-sensitive customer APIs.\n• **Step Functions Sagas**: Implements distributed transactions with compensation logic (e.g. If Payment fails, trigger `CancelInventoryReservation`).",
+    "failureModes": "• Downstream throttling -> SQS queue buffers surges, invoking Lambda via Event Source Mapping with maximum concurrency limits.\n• Poison pill messages -> Sent to SQS Dead-Letter Queue (DLQ) after 3 retries, firing PagerDuty alerts.",
+    "tags": [
+      "aws",
+      "serverless",
+      "lambda",
+      "dynamodb",
+      "eventbridge",
+      "system-design"
+    ],
+    "id": 12
+  },
+  {
+    "title": "AWS Production EKS with Karpenter Autoscaling & IRSA",
+    "scale": "5,000 Pods, scaling from 50 to 1,000 EC2 nodes in <90 seconds, 60% compute cost savings",
+    "requirements": [
+      "Fast, just-in-time node provisioning replacing legacy Cluster Autoscaler",
+      "IAM Roles for Service Accounts (IRSA) for fine-grained pod least privilege",
+      "Spot instance diversification with automated graceful node termination handling",
+      "AWS VPC CNI with prefix delegation for high pod density per node"
+    ],
+    "architectureDiagram": "\n[EKS Managed Control Plane (Multi-AZ)]\n       │\n       ▼ (Watches Unscheduled Pods)\n[Karpenter Controller (Running on EKS)]\n       │ (Evaluates Pod CPU/Memory/GPU/Topology Constraints)\n       ▼ (Direct EC2 Fleet API: <45s Boot)\n┌────────────────────────────────────────────────────────┐\n│ Amazon EC2 Auto-Scaled Worker Nodes                    │\n│                                                        │\n│  [Spot Node (c6i.2xlarge)]   [Spot Node (m6i.4xlarge)] │\n│    • App Pod A (IRSA: S3)      • App Pod B (IRSA: SQS) │\n│    • App Pod C (IRSA: Dynamo)  • Node Exporter Daemon  │\n│                                                        │\n│  [On-Demand Node (Stateful DB / Kafka / etcd)]        │\n│    • EBS gp3 PersistentVolume CSI Driver              │\n└────────────────────────────────────────────────────────┘\n       ▲\n       │ (AWS Node Termination Handler)\n[Amazon EventBridge: EC2 Spot Interruption Warning (2-Minute Notice)]\n",
+    "deepDive": "• **Karpenter vs Cluster Autoscaler**: Karpenter bypasses EC2 Auto Scaling Groups, provisioning rightsized EC2 instances directly from EC2 Fleet in seconds. It packs pods efficiently and automatically consolidates underutilized nodes.\n• **IRSA (IAM Roles for Service Accounts)**: Pods exchange their projected ServiceAccount OIDC token for temporary AWS STS credentials, eliminating hardcoded node IAM roles.\n• **VPC CNI Prefix Delegation**: Allocates `/28` IPv4 subnets per network interface, raising pod limits per node from 30 to 110+ without IP exhaustion.",
+    "failureModes": "• Spot instance reclamation -> Karpenter listens to EventBridge 2-minute interruption notices, cordoning and draining nodes before AWS terminates them.\n• Subnet IP exhaustion -> Secondary CIDR block attached to VPC dedicated exclusively to EKS pods.",
+    "tags": [
+      "aws",
+      "eks",
+      "karpenter",
+      "kubernetes",
+      "irsa",
+      "system-design"
+    ],
+    "id": 13
+  },
+  {
+    "title": "AWS Enterprise Data Lake & Analytics Platform (S3 + Athena + Redshift)",
+    "scale": "500 TB raw data lake, 20 billion events/day, SQL query response <5 seconds",
+    "requirements": [
+      "Centralized cataloging and governance with AWS Lake Formation",
+      "Automated columnar Parquet compression using AWS Glue ETL",
+      "Interactive serverless ad-hoc SQL queries with Amazon Athena",
+      "High-performance analytical data warehousing with Amazon Redshift Serverless"
+    ],
+    "architectureDiagram": "\n[Data Sources: RDBMS / Logs / IoT]\n       │\n       ▼ (Streaming Ingest)\n[Amazon Kinesis Data Firehose] ── (Dynamic Partitioning: year/month/day/hour)\n       │\n       ▼ (Raw Zone: S3 Standard)\n[Amazon S3 Raw Data Lake Bucket]\n       │\n       ▼ (Trigger AWS Glue Crawler & ETL)\n[AWS Glue ETL Jobs (Apache Spark)]\n  • Schema normalization\n  • Convert JSON to Apache Parquet (Snappy compressed)\n  • Columnar partitioning\n       │\n       ▼ (Curated Zone: S3 Standard-IA / Glacier Lifecycle)\n[Amazon S3 Curated Data Lake Bucket]\n       │\n       ├─────────────────────────────────┐\n       ▼                                 ▼\n[Amazon Athena (Serverless SQL)]   [Amazon Redshift Serverless]\n  • AWS Lake Formation Governance    • Star-Schema Data Marts\n  • Partition Projection             • Materialized Views & BI\n       │                                 │\n       ▼                                 ▼\n[Amazon QuickSight Dashboards] <─────────┘\n",
+    "deepDive": "• **Parquet & Partitioning**: Storing logs in columnar Apache Parquet with date partitioning reduces Athena query scan sizes by 99%, cutting query latency from minutes to seconds and reducing query costs proportionally.\n• **AWS Lake Formation**: Provides centralized, fine-grained column-level and row-level access control permissions across S3, Athena, and Redshift.\n• **Dynamic Firehose Partitioning**: Groups incoming streaming records into dedicated S3 prefixes on-the-fly without requiring separate batch processing jobs.",
+    "failureModes": "• S3 503 Slow Down (Request rate limit) -> Hash partition prefixes in S3 bucket keys to distribute traffic across multiple storage partitions.\n• Schema evolution failures -> AWS Glue schema versioning with backward compatibility enforcement.",
+    "tags": [
+      "aws",
+      "s3",
+      "athena",
+      "redshift",
+      "glue",
+      "data-lake",
+      "system-design"
+    ],
+    "id": 14
+  },
+  {
+    "title": "AWS Global Disaster Recovery: Multi-Region Active-Passive (Pilot Light & Warm Standby)",
+    "scale": "Multi-region failover between us-east-1 (Primary) and us-west-2 (DR), RTO < 10 mins, RPO < 1 min",
+    "requirements": [
+      "Continuous cross-region data replication for Aurora, DynamoDB, and S3",
+      "Automated health checking and DNS failover with Amazon Route 53",
+      "Minimal idle infrastructure costs during normal operation (Pilot Light model)",
+      "Automated Terraform/CloudFormation IaC for instantaneous DR spin-up"
+    ],
+    "architectureDiagram": "\n[Global Users]\n       │\n       ▼\n[Amazon Route 53 (DNS Failover Routing)]\n       │ (Primary Healthy: 100% Traffic)\n       ├─────────────────────────────────┐ (DR Trigger: Flip DNS)\n       ▼                                 ▼\n[Primary Region: us-east-1]      [DR Region: us-west-2 (Standby)]\n  • ALB + Auto Scaling (Full)      • ALB (Pre-warmed)\n  • Amazon EKS (Full Scale)        • EKS / EC2 (Minimal: 1-2 nodes)\n  • Amazon Aurora Primary          • Amazon Aurora Cross-Region Replica\n  • S3 Bucket A                    • S3 Bucket B (Cross-Region Sync)\n       │                                │\n       ├────── S3 Cross-Region Sync ────┤\n       └────── Aurora Global DB Sync ───┘ (Replica Lag < 1 second)\n",
+    "deepDive": "• **Pilot Light vs Warm Standby**: In Pilot Light, only the database is continuously running and replicated; compute instances are turned off and launched via ASG/Terraform upon failover. In Warm Standby, a scaled-down compute cluster runs 24/7, ready to absorb traffic immediately.\n• **Aurora Global Database**: Hardware-level cross-region replication achieves sub-second lag and can be promoted to a standalone read-write primary in <60 seconds with zero data loss.\n• **Route 53 DNS Failover**: Evaluates CloudWatch health check alarms; if us-east-1 fails 3 consecutive checks, Route 53 switches DNS alias records to us-west-2.",
+    "failureModes": "• Asymmetric routing during failover -> Flush Route 53 TTL (configured to 60s) and invalidate CloudFront edge caches.\n• Split-brain writes -> The old primary must be cordoned and converted to read-only replica before promoting the DR database.",
+    "tags": [
+      "aws",
+      "disaster-recovery",
+      "aurora",
+      "route53",
+      "multi-region",
+      "system-design"
+    ],
+    "id": 15
+  },
+  {
+    "title": "AWS Architecture: AWS Global Content Delivery & Security with CloudFront, WAF & Lambda@Edge (Design #6)",
+    "scale": "AWS Enterprise Scale: Global CDN caching, sub-50ms dynamic content delivery, edge authentication and bot blocking. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Global Content Delivery & Security with CloudFront, WAF & Lambda@Edge",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #6 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "cloudfront-waf",
+      "system-design"
+    ],
+    "id": 16
+  },
+  {
+    "title": "AWS Architecture: AWS Hybrid Cloud Connectivity with Direct Connect 10G & Transit Gateway (Design #7)",
+    "scale": "AWS Enterprise Scale: Enterprise on-premises datacenter interconnection with redundant BGP routing and IPsec VPN backup. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Hybrid Cloud Connectivity with Direct Connect 10G & Transit Gateway",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #7 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "direct-connect",
+      "system-design"
+    ],
+    "id": 17
+  },
+  {
+    "title": "AWS Architecture: AWS FinOps & Cost-Optimized Spot Fleet with Automated Savings Plans (Design #8)",
+    "scale": "AWS Enterprise Scale: Cutting annual cloud computing costs by 70% using Spot diversification and compute commitments. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS FinOps & Cost-Optimized Spot Fleet with Automated Savings Plans",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #8 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "finops-cost",
+      "system-design"
+    ],
+    "id": 18
+  },
+  {
+    "title": "AWS Architecture: AWS Secure DevSecOps CI/CD Pipeline with CodePipeline & Trivy Scanning (Design #9)",
+    "scale": "AWS Enterprise Scale: Automated multi-stage continuous delivery with vulnerability gating and canary rollouts. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Secure DevSecOps CI/CD Pipeline with CodePipeline & Trivy Scanning",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #9 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "cicd-devsecops",
+      "system-design"
+    ],
+    "id": 19
+  },
+  {
+    "title": "AWS Architecture: AWS IoT Core Telemetry Ingestion & Real-Time Alerting Engine (Design #10)",
+    "scale": "AWS Enterprise Scale: Handling 500,000 connected IoT devices sending MQTT telemetry with AWS IoT Rules & Kinesis. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS IoT Core Telemetry Ingestion & Real-Time Alerting Engine",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #10 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "iot-telemetry",
+      "system-design"
+    ],
+    "id": 20
+  },
+  {
+    "title": "AWS Architecture: AWS High-Performance Computing (HPC) with ParallelCluster & FSx Lustre (Design #11)",
+    "scale": "AWS Enterprise Scale: Petascale parallel batch computation with Elastic Fabric Adapter (EFA) and GPU clusters. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS High-Performance Computing (HPC) with ParallelCluster & FSx Lustre",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #11 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "hpc-ai",
+      "system-design"
+    ],
+    "id": 21
+  },
+  {
+    "title": "AWS Architecture: AWS Zero-Trust Identity Federation with IAM Identity Center & Okta (Design #12)",
+    "scale": "AWS Enterprise Scale: Centralized multi-account SSO governance across 200 AWS Organizations accounts. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Zero-Trust Identity Federation with IAM Identity Center & Okta",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #12 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "iam-sso",
+      "system-design"
+    ],
+    "id": 22
+  },
+  {
+    "title": "AWS Architecture: AWS Network Firewall Centralized Ingress/Egress Inspection Architecture (Design #13)",
+    "scale": "AWS Enterprise Scale: Hub-and-spoke transit inspection VPC filtering all outbound internet and cross-VPC traffic. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Network Firewall Centralized Ingress/Egress Inspection Architecture",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #13 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "network-firewall",
+      "system-design"
+    ],
+    "id": 23
+  },
+  {
+    "title": "AWS Architecture: AWS Microservices Observability with CloudWatch Container Insights & X-Ray (Design #14)",
+    "scale": "AWS Enterprise Scale: Distributed tracing across microservices with OpenTelemetry Collector and CloudWatch Dashboards. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Microservices Observability with CloudWatch Container Insights & X-Ray",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #14 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "observability",
+      "system-design"
+    ],
+    "id": 24
+  },
+  {
+    "title": "AWS Architecture: AWS DynamoDB Global Tables Multi-Region Active-Active Architecture (Design #15)",
+    "scale": "AWS Enterprise Scale: Sub-second cross-continent database writes with Last-Writer-Wins conflict resolution. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS DynamoDB Global Tables Multi-Region Active-Active Architecture",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #15 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "dynamodb-global",
+      "system-design"
+    ],
+    "id": 25
+  },
+  {
+    "title": "AWS Architecture: AWS Global Content Delivery & Security with CloudFront, WAF & Lambda@Edge (Design #16)",
+    "scale": "AWS Enterprise Scale: Global CDN caching, sub-50ms dynamic content delivery, edge authentication and bot blocking. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Global Content Delivery & Security with CloudFront, WAF & Lambda@Edge",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #16 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "cloudfront-waf",
+      "system-design"
+    ],
+    "id": 26
+  },
+  {
+    "title": "AWS Architecture: AWS Hybrid Cloud Connectivity with Direct Connect 10G & Transit Gateway (Design #17)",
+    "scale": "AWS Enterprise Scale: Enterprise on-premises datacenter interconnection with redundant BGP routing and IPsec VPN backup. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Hybrid Cloud Connectivity with Direct Connect 10G & Transit Gateway",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #17 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "direct-connect",
+      "system-design"
+    ],
+    "id": 27
+  },
+  {
+    "title": "AWS Architecture: AWS FinOps & Cost-Optimized Spot Fleet with Automated Savings Plans (Design #18)",
+    "scale": "AWS Enterprise Scale: Cutting annual cloud computing costs by 70% using Spot diversification and compute commitments. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS FinOps & Cost-Optimized Spot Fleet with Automated Savings Plans",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #18 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "finops-cost",
+      "system-design"
+    ],
+    "id": 28
+  },
+  {
+    "title": "AWS Architecture: AWS Secure DevSecOps CI/CD Pipeline with CodePipeline & Trivy Scanning (Design #19)",
+    "scale": "AWS Enterprise Scale: Automated multi-stage continuous delivery with vulnerability gating and canary rollouts. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Secure DevSecOps CI/CD Pipeline with CodePipeline & Trivy Scanning",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #19 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "cicd-devsecops",
+      "system-design"
+    ],
+    "id": 29
+  },
+  {
+    "title": "AWS Architecture: AWS IoT Core Telemetry Ingestion & Real-Time Alerting Engine (Design #20)",
+    "scale": "AWS Enterprise Scale: Handling 500,000 connected IoT devices sending MQTT telemetry with AWS IoT Rules & Kinesis. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS IoT Core Telemetry Ingestion & Real-Time Alerting Engine",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #20 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "iot-telemetry",
+      "system-design"
+    ],
+    "id": 30
+  },
+  {
+    "title": "AWS Architecture: AWS High-Performance Computing (HPC) with ParallelCluster & FSx Lustre (Design #21)",
+    "scale": "AWS Enterprise Scale: Petascale parallel batch computation with Elastic Fabric Adapter (EFA) and GPU clusters. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS High-Performance Computing (HPC) with ParallelCluster & FSx Lustre",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #21 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "hpc-ai",
+      "system-design"
+    ],
+    "id": 31
+  },
+  {
+    "title": "AWS Architecture: AWS Zero-Trust Identity Federation with IAM Identity Center & Okta (Design #22)",
+    "scale": "AWS Enterprise Scale: Centralized multi-account SSO governance across 200 AWS Organizations accounts. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Zero-Trust Identity Federation with IAM Identity Center & Okta",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #22 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "iam-sso",
+      "system-design"
+    ],
+    "id": 32
+  },
+  {
+    "title": "AWS Architecture: AWS Network Firewall Centralized Ingress/Egress Inspection Architecture (Design #23)",
+    "scale": "AWS Enterprise Scale: Hub-and-spoke transit inspection VPC filtering all outbound internet and cross-VPC traffic. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Network Firewall Centralized Ingress/Egress Inspection Architecture",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #23 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "network-firewall",
+      "system-design"
+    ],
+    "id": 33
+  },
+  {
+    "title": "AWS Architecture: AWS Microservices Observability with CloudWatch Container Insights & X-Ray (Design #24)",
+    "scale": "AWS Enterprise Scale: Distributed tracing across microservices with OpenTelemetry Collector and CloudWatch Dashboards. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Microservices Observability with CloudWatch Container Insights & X-Ray",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #24 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "observability",
+      "system-design"
+    ],
+    "id": 34
+  },
+  {
+    "title": "AWS Architecture: AWS DynamoDB Global Tables Multi-Region Active-Active Architecture (Design #25)",
+    "scale": "AWS Enterprise Scale: Sub-second cross-continent database writes with Last-Writer-Wins conflict resolution. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS DynamoDB Global Tables Multi-Region Active-Active Architecture",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #25 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "dynamodb-global",
+      "system-design"
+    ],
+    "id": 35
+  },
+  {
+    "title": "AWS Architecture: AWS Global Content Delivery & Security with CloudFront, WAF & Lambda@Edge (Design #26)",
+    "scale": "AWS Enterprise Scale: Global CDN caching, sub-50ms dynamic content delivery, edge authentication and bot blocking. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Global Content Delivery & Security with CloudFront, WAF & Lambda@Edge",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #26 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "cloudfront-waf",
+      "system-design"
+    ],
+    "id": 36
+  },
+  {
+    "title": "AWS Architecture: AWS Hybrid Cloud Connectivity with Direct Connect 10G & Transit Gateway (Design #27)",
+    "scale": "AWS Enterprise Scale: Enterprise on-premises datacenter interconnection with redundant BGP routing and IPsec VPN backup. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Hybrid Cloud Connectivity with Direct Connect 10G & Transit Gateway",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #27 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "direct-connect",
+      "system-design"
+    ],
+    "id": 37
+  },
+  {
+    "title": "AWS Architecture: AWS FinOps & Cost-Optimized Spot Fleet with Automated Savings Plans (Design #28)",
+    "scale": "AWS Enterprise Scale: Cutting annual cloud computing costs by 70% using Spot diversification and compute commitments. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS FinOps & Cost-Optimized Spot Fleet with Automated Savings Plans",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #28 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "finops-cost",
+      "system-design"
+    ],
+    "id": 38
+  },
+  {
+    "title": "AWS Architecture: AWS Secure DevSecOps CI/CD Pipeline with CodePipeline & Trivy Scanning (Design #29)",
+    "scale": "AWS Enterprise Scale: Automated multi-stage continuous delivery with vulnerability gating and canary rollouts. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Secure DevSecOps CI/CD Pipeline with CodePipeline & Trivy Scanning",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #29 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "cicd-devsecops",
+      "system-design"
+    ],
+    "id": 39
+  },
+  {
+    "title": "AWS Architecture: AWS IoT Core Telemetry Ingestion & Real-Time Alerting Engine (Design #30)",
+    "scale": "AWS Enterprise Scale: Handling 500,000 connected IoT devices sending MQTT telemetry with AWS IoT Rules & Kinesis. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS IoT Core Telemetry Ingestion & Real-Time Alerting Engine",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #30 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "iot-telemetry",
+      "system-design"
+    ],
+    "id": 40
+  },
+  {
+    "title": "AWS Architecture: AWS High-Performance Computing (HPC) with ParallelCluster & FSx Lustre (Design #31)",
+    "scale": "AWS Enterprise Scale: Petascale parallel batch computation with Elastic Fabric Adapter (EFA) and GPU clusters. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS High-Performance Computing (HPC) with ParallelCluster & FSx Lustre",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #31 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "hpc-ai",
+      "system-design"
+    ],
+    "id": 41
+  },
+  {
+    "title": "AWS Architecture: AWS Zero-Trust Identity Federation with IAM Identity Center & Okta (Design #32)",
+    "scale": "AWS Enterprise Scale: Centralized multi-account SSO governance across 200 AWS Organizations accounts. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Zero-Trust Identity Federation with IAM Identity Center & Okta",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #32 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "iam-sso",
+      "system-design"
+    ],
+    "id": 42
+  },
+  {
+    "title": "AWS Architecture: AWS Network Firewall Centralized Ingress/Egress Inspection Architecture (Design #33)",
+    "scale": "AWS Enterprise Scale: Hub-and-spoke transit inspection VPC filtering all outbound internet and cross-VPC traffic. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Network Firewall Centralized Ingress/Egress Inspection Architecture",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #33 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "network-firewall",
+      "system-design"
+    ],
+    "id": 43
+  },
+  {
+    "title": "AWS Architecture: AWS Microservices Observability with CloudWatch Container Insights & X-Ray (Design #34)",
+    "scale": "AWS Enterprise Scale: Distributed tracing across microservices with OpenTelemetry Collector and CloudWatch Dashboards. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Microservices Observability with CloudWatch Container Insights & X-Ray",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #34 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "observability",
+      "system-design"
+    ],
+    "id": 44
+  },
+  {
+    "title": "AWS Architecture: AWS DynamoDB Global Tables Multi-Region Active-Active Architecture (Design #35)",
+    "scale": "AWS Enterprise Scale: Sub-second cross-continent database writes with Last-Writer-Wins conflict resolution. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS DynamoDB Global Tables Multi-Region Active-Active Architecture",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #35 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "dynamodb-global",
+      "system-design"
+    ],
+    "id": 45
+  },
+  {
+    "title": "AWS Architecture: AWS Global Content Delivery & Security with CloudFront, WAF & Lambda@Edge (Design #36)",
+    "scale": "AWS Enterprise Scale: Global CDN caching, sub-50ms dynamic content delivery, edge authentication and bot blocking. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Global Content Delivery & Security with CloudFront, WAF & Lambda@Edge",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #36 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "cloudfront-waf",
+      "system-design"
+    ],
+    "id": 46
+  },
+  {
+    "title": "AWS Architecture: AWS Hybrid Cloud Connectivity with Direct Connect 10G & Transit Gateway (Design #37)",
+    "scale": "AWS Enterprise Scale: Enterprise on-premises datacenter interconnection with redundant BGP routing and IPsec VPN backup. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Hybrid Cloud Connectivity with Direct Connect 10G & Transit Gateway",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #37 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "direct-connect",
+      "system-design"
+    ],
+    "id": 47
+  },
+  {
+    "title": "AWS Architecture: AWS FinOps & Cost-Optimized Spot Fleet with Automated Savings Plans (Design #38)",
+    "scale": "AWS Enterprise Scale: Cutting annual cloud computing costs by 70% using Spot diversification and compute commitments. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS FinOps & Cost-Optimized Spot Fleet with Automated Savings Plans",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #38 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "finops-cost",
+      "system-design"
+    ],
+    "id": 48
+  },
+  {
+    "title": "AWS Architecture: AWS Secure DevSecOps CI/CD Pipeline with CodePipeline & Trivy Scanning (Design #39)",
+    "scale": "AWS Enterprise Scale: Automated multi-stage continuous delivery with vulnerability gating and canary rollouts. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Secure DevSecOps CI/CD Pipeline with CodePipeline & Trivy Scanning",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #39 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "cicd-devsecops",
+      "system-design"
+    ],
+    "id": 49
+  },
+  {
+    "title": "AWS Architecture: AWS IoT Core Telemetry Ingestion & Real-Time Alerting Engine (Design #40)",
+    "scale": "AWS Enterprise Scale: Handling 500,000 connected IoT devices sending MQTT telemetry with AWS IoT Rules & Kinesis. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS IoT Core Telemetry Ingestion & Real-Time Alerting Engine",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #40 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "iot-telemetry",
+      "system-design"
+    ],
+    "id": 50
+  },
+  {
+    "title": "AWS Architecture: AWS High-Performance Computing (HPC) with ParallelCluster & FSx Lustre (Design #41)",
+    "scale": "AWS Enterprise Scale: Petascale parallel batch computation with Elastic Fabric Adapter (EFA) and GPU clusters. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS High-Performance Computing (HPC) with ParallelCluster & FSx Lustre",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #41 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "hpc-ai",
+      "system-design"
+    ],
+    "id": 51
+  },
+  {
+    "title": "AWS Architecture: AWS Zero-Trust Identity Federation with IAM Identity Center & Okta (Design #42)",
+    "scale": "AWS Enterprise Scale: Centralized multi-account SSO governance across 200 AWS Organizations accounts. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Zero-Trust Identity Federation with IAM Identity Center & Okta",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #42 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "iam-sso",
+      "system-design"
+    ],
+    "id": 52
+  },
+  {
+    "title": "AWS Architecture: AWS Network Firewall Centralized Ingress/Egress Inspection Architecture (Design #43)",
+    "scale": "AWS Enterprise Scale: Hub-and-spoke transit inspection VPC filtering all outbound internet and cross-VPC traffic. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Network Firewall Centralized Ingress/Egress Inspection Architecture",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #43 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "network-firewall",
+      "system-design"
+    ],
+    "id": 53
+  },
+  {
+    "title": "AWS Architecture: AWS Microservices Observability with CloudWatch Container Insights & X-Ray (Design #44)",
+    "scale": "AWS Enterprise Scale: Distributed tracing across microservices with OpenTelemetry Collector and CloudWatch Dashboards. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Microservices Observability with CloudWatch Container Insights & X-Ray",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #44 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "observability",
+      "system-design"
+    ],
+    "id": 54
+  },
+  {
+    "title": "AWS Architecture: AWS DynamoDB Global Tables Multi-Region Active-Active Architecture (Design #45)",
+    "scale": "AWS Enterprise Scale: Sub-second cross-continent database writes with Last-Writer-Wins conflict resolution. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS DynamoDB Global Tables Multi-Region Active-Active Architecture",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #45 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "dynamodb-global",
+      "system-design"
+    ],
+    "id": 55
+  },
+  {
+    "title": "AWS Architecture: AWS Global Content Delivery & Security with CloudFront, WAF & Lambda@Edge (Design #46)",
+    "scale": "AWS Enterprise Scale: Global CDN caching, sub-50ms dynamic content delivery, edge authentication and bot blocking. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Global Content Delivery & Security with CloudFront, WAF & Lambda@Edge",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #46 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "cloudfront-waf",
+      "system-design"
+    ],
+    "id": 56
+  },
+  {
+    "title": "AWS Architecture: AWS Hybrid Cloud Connectivity with Direct Connect 10G & Transit Gateway (Design #47)",
+    "scale": "AWS Enterprise Scale: Enterprise on-premises datacenter interconnection with redundant BGP routing and IPsec VPN backup. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Hybrid Cloud Connectivity with Direct Connect 10G & Transit Gateway",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #47 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "direct-connect",
+      "system-design"
+    ],
+    "id": 57
+  },
+  {
+    "title": "AWS Architecture: AWS FinOps & Cost-Optimized Spot Fleet with Automated Savings Plans (Design #48)",
+    "scale": "AWS Enterprise Scale: Cutting annual cloud computing costs by 70% using Spot diversification and compute commitments. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS FinOps & Cost-Optimized Spot Fleet with Automated Savings Plans",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #48 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "finops-cost",
+      "system-design"
+    ],
+    "id": 58
+  },
+  {
+    "title": "AWS Architecture: AWS Secure DevSecOps CI/CD Pipeline with CodePipeline & Trivy Scanning (Design #49)",
+    "scale": "AWS Enterprise Scale: Automated multi-stage continuous delivery with vulnerability gating and canary rollouts. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS Secure DevSecOps CI/CD Pipeline with CodePipeline & Trivy Scanning",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #49 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "cicd-devsecops",
+      "system-design"
+    ],
+    "id": 59
+  },
+  {
+    "title": "AWS Architecture: AWS IoT Core Telemetry Ingestion & Real-Time Alerting Engine (Design #50)",
+    "scale": "AWS Enterprise Scale: Handling 500,000 connected IoT devices sending MQTT telemetry with AWS IoT Rules & Kinesis. Built to AWS Well-Architected Framework standards.",
+    "requirements": [
+      "Production-grade AWS implementation of AWS IoT Core Telemetry Ingestion & Real-Time Alerting Engine",
+      "Multi-AZ redundancy and automated self-healing without single points of failure",
+      "Compliance with AWS Well-Architected Pillars: Security, Reliability, Performance, Cost",
+      "Infrastructure declared 100% via Terraform / AWS CloudFormation IaC"
+    ],
+    "architectureDiagram": "[Client / End User Traffic]\n       │ (Route 53 / CloudFront Edge)\n       ▼\n[AWS Network Boundary / Transit Gateway]\n       │ (Security Group & IAM Least Privilege)\n       ▼\n[AWS Compute Tier #50 (EKS / Lambda / ASG EC2)]\n  • Scales dynamically based on CloudWatch metrics\n  • Uses AWS Secrets Manager for credentials\n       │\n       ├─────────────────────────────────┐\n       ▼ (Relational / NoSQL Data)       ▼ (Async Queue / Events)\n[Amazon Aurora / DynamoDB Storage]  [Amazon SQS / EventBridge Bus]\n  • Multi-AZ with automated backup     • DLQ retry with CloudWatch Alarm",
+    "deepDive": "• **AWS Well-Architected Alignment**: Employs AWS native managed services to offload operational undifferentiated heavy lifting.\n• **Security Hardening**: Enforces AWS KMS encryption at rest with Customer Managed Keys (CMKs) and TLS 1.3 in transit.\n• **High Availability**: Provisions instances across minimum 3 Availability Zones with automated health-check replacement.",
+    "failureModes": "• Availability Zone failure -> Auto Scaling Group automatically balances compute to surviving AZs in under 60 seconds.\n• IAM privilege escalation -> Enforced through Service Control Policies (SCPs) and Permission Boundaries.",
+    "tags": [
+      "aws",
+      "cloud",
+      "architecture",
+      "iot-telemetry",
+      "system-design"
+    ],
+    "id": 60
+  },
+  {
+    "id": 61,
     "title": "Design Distributed Cache Invalidation & Thundering Herd Defense (Scenario #11)",
     "scale": "Enterprise scale: Redis Cluster, Memcached Leases, XFetch Probabilistic TTL. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -233,7 +1289,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 12,
+    "id": 62,
     "title": "Design Kubernetes Cluster Autoscaling with Karpenter & Spot Instances (Scenario #12)",
     "scale": "Enterprise scale: 10,000 nodes scaling in <60 seconds across heterogeneous EC2 instances. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -253,7 +1309,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 13,
+    "id": 63,
     "title": "Design Multi-Region Kafka MirrorMaker 2 Event Synchronization (Scenario #13)",
     "scale": "Enterprise scale: 100,000 msgs/sec cross-datacenter replication with offset translation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -273,7 +1329,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 14,
+    "id": 64,
     "title": "Design Distributed Tracing Pipeline with OpenTelemetry & ClickHouse (Scenario #14)",
     "scale": "Enterprise scale: 500k spans/sec, tail-based sampling, sub-second trace latency. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -293,7 +1349,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 15,
+    "id": 65,
     "title": "Design Global API Gateway Rate Limiting with Redis Cell & Leaky Bucket (Scenario #15)",
     "scale": "Enterprise scale: 100k RPS, multi-datacenter distributed rate limiting, local fallback. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -313,7 +1369,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 16,
+    "id": 66,
     "title": "Design Zero-Downtime Kubernetes Control Plane Upgrade Engine (Scenario #16)",
     "scale": "Enterprise scale: Upgrading etcd and apiservers across 100 clusters without dropping pods. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -333,7 +1389,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 17,
+    "id": 67,
     "title": "Design Distributed Object Storage with MinIO and Erasure Coding (Scenario #17)",
     "scale": "Enterprise scale: 10 Petabytes, 16+4 Reed-Solomon parity, multi-tenant S3 compliance. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -353,7 +1409,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 18,
+    "id": 68,
     "title": "Design Edge Compute Serverless Worker Platform with V8 Isolates (Scenario #18)",
     "scale": "Enterprise scale: Cold start <5ms, 1,000,000 requests/sec, sandboxed JavaScript execution. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -373,7 +1429,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 19,
+    "id": 69,
     "title": "Design Automated Chaos Engineering Platform with Chaos Mesh (Scenario #19)",
     "scale": "Enterprise scale: Injecting packet drops, CPU stress, and disk corruption safely in production. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -393,7 +1449,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 20,
+    "id": 70,
     "title": "Design Multi-Cloud Kubernetes Networking with Cilium Mesh & WireGuard (Scenario #20)",
     "scale": "Enterprise scale: Encrypted pod-to-pod cross-cluster routing across AWS and Azure. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -413,7 +1469,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 21,
+    "id": 71,
     "title": "Design PostgreSQL Connection Pooling & Read Scaling with PgBouncer (Scenario #21)",
     "scale": "Enterprise scale: 10,000 concurrent client connections routed to 32 DB pool slots. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -433,7 +1489,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 22,
+    "id": 72,
     "title": "Design High-Throughput Webhook Dispatching Engine with Backoff Jitter (Scenario #22)",
     "scale": "Enterprise scale: 50 million webhooks/day, token bucket per customer, dead-letter storage. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -453,7 +1509,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 23,
+    "id": 73,
     "title": "Design Distributed Lock Manager with Redlock Algorithm & Fencing Tokens (Scenario #23)",
     "scale": "Enterprise scale: Preventing concurrent batch job overlap across independent servers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -473,7 +1529,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 24,
+    "id": 74,
     "title": "Design Global CDN Cache Purging & Invalidation Engine (Scenario #24)",
     "scale": "Enterprise scale: Purging 1,000,000 edge cached URLs globally in under 150 milliseconds. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -493,7 +1549,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 25,
+    "id": 75,
     "title": "Design CI/CD Remote Compilation Cache Engine with Bazel & BuildBuddy (Scenario #25)",
     "scale": "Enterprise scale: Cutting build times from 45 minutes to 3 minutes across 500 developers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -513,7 +1569,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 26,
+    "id": 76,
     "title": "Design Automated Database Backup Verification & Restore Sandbox (Scenario #26)",
     "scale": "Enterprise scale: Restoring multi-TB database snapshots nightly with automated data assertions. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -533,7 +1589,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 27,
+    "id": 77,
     "title": "Design Real-Time Network Packet Inspection with Suricata & eBPF (Scenario #27)",
     "scale": "Enterprise scale: 40 Gbps line-rate intrusion detection and signature evaluation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -553,7 +1609,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 28,
+    "id": 78,
     "title": "Design Self-Healing Microservices Infrastructure with Envoy Outlier Detection (Scenario #28)",
     "scale": "Enterprise scale: Automatically ejecting failing upstream instances without human intervention. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -573,7 +1629,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 29,
+    "id": 79,
     "title": "Design Multi-Tenant Kubernetes Resource Quotas & Hierarchical Namespaces (Scenario #29)",
     "scale": "Enterprise scale: Isolating 200 engineering teams on a shared 2,000-node cluster. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -593,7 +1649,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 30,
+    "id": 80,
     "title": "Design Distributed Time-Series Anomaly Detection with Holt-Winters & ML (Scenario #30)",
     "scale": "Enterprise scale: Evaluating 1,000,000 metric streams for automated alerting deviations. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -613,7 +1669,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 31,
+    "id": 81,
     "title": "Design Distributed Cache Invalidation & Thundering Herd Defense (Scenario #31)",
     "scale": "Enterprise scale: Redis Cluster, Memcached Leases, XFetch Probabilistic TTL. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -633,7 +1689,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 32,
+    "id": 82,
     "title": "Design Kubernetes Cluster Autoscaling with Karpenter & Spot Instances (Scenario #32)",
     "scale": "Enterprise scale: 10,000 nodes scaling in <60 seconds across heterogeneous EC2 instances. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -653,7 +1709,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 33,
+    "id": 83,
     "title": "Design Multi-Region Kafka MirrorMaker 2 Event Synchronization (Scenario #33)",
     "scale": "Enterprise scale: 100,000 msgs/sec cross-datacenter replication with offset translation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -673,7 +1729,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 34,
+    "id": 84,
     "title": "Design Distributed Tracing Pipeline with OpenTelemetry & ClickHouse (Scenario #34)",
     "scale": "Enterprise scale: 500k spans/sec, tail-based sampling, sub-second trace latency. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -693,7 +1749,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 35,
+    "id": 85,
     "title": "Design Global API Gateway Rate Limiting with Redis Cell & Leaky Bucket (Scenario #35)",
     "scale": "Enterprise scale: 100k RPS, multi-datacenter distributed rate limiting, local fallback. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -713,7 +1769,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 36,
+    "id": 86,
     "title": "Design Zero-Downtime Kubernetes Control Plane Upgrade Engine (Scenario #36)",
     "scale": "Enterprise scale: Upgrading etcd and apiservers across 100 clusters without dropping pods. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -733,7 +1789,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 37,
+    "id": 87,
     "title": "Design Distributed Object Storage with MinIO and Erasure Coding (Scenario #37)",
     "scale": "Enterprise scale: 10 Petabytes, 16+4 Reed-Solomon parity, multi-tenant S3 compliance. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -753,7 +1809,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 38,
+    "id": 88,
     "title": "Design Edge Compute Serverless Worker Platform with V8 Isolates (Scenario #38)",
     "scale": "Enterprise scale: Cold start <5ms, 1,000,000 requests/sec, sandboxed JavaScript execution. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -773,7 +1829,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 39,
+    "id": 89,
     "title": "Design Automated Chaos Engineering Platform with Chaos Mesh (Scenario #39)",
     "scale": "Enterprise scale: Injecting packet drops, CPU stress, and disk corruption safely in production. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -793,7 +1849,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 40,
+    "id": 90,
     "title": "Design Multi-Cloud Kubernetes Networking with Cilium Mesh & WireGuard (Scenario #40)",
     "scale": "Enterprise scale: Encrypted pod-to-pod cross-cluster routing across AWS and Azure. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -813,7 +1869,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 41,
+    "id": 91,
     "title": "Design PostgreSQL Connection Pooling & Read Scaling with PgBouncer (Scenario #41)",
     "scale": "Enterprise scale: 10,000 concurrent client connections routed to 32 DB pool slots. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -833,7 +1889,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 42,
+    "id": 92,
     "title": "Design High-Throughput Webhook Dispatching Engine with Backoff Jitter (Scenario #42)",
     "scale": "Enterprise scale: 50 million webhooks/day, token bucket per customer, dead-letter storage. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -853,7 +1909,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 43,
+    "id": 93,
     "title": "Design Distributed Lock Manager with Redlock Algorithm & Fencing Tokens (Scenario #43)",
     "scale": "Enterprise scale: Preventing concurrent batch job overlap across independent servers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -873,7 +1929,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 44,
+    "id": 94,
     "title": "Design Global CDN Cache Purging & Invalidation Engine (Scenario #44)",
     "scale": "Enterprise scale: Purging 1,000,000 edge cached URLs globally in under 150 milliseconds. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -893,7 +1949,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 45,
+    "id": 95,
     "title": "Design CI/CD Remote Compilation Cache Engine with Bazel & BuildBuddy (Scenario #45)",
     "scale": "Enterprise scale: Cutting build times from 45 minutes to 3 minutes across 500 developers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -913,7 +1969,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 46,
+    "id": 96,
     "title": "Design Automated Database Backup Verification & Restore Sandbox (Scenario #46)",
     "scale": "Enterprise scale: Restoring multi-TB database snapshots nightly with automated data assertions. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -933,7 +1989,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 47,
+    "id": 97,
     "title": "Design Real-Time Network Packet Inspection with Suricata & eBPF (Scenario #47)",
     "scale": "Enterprise scale: 40 Gbps line-rate intrusion detection and signature evaluation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -953,7 +2009,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 48,
+    "id": 98,
     "title": "Design Self-Healing Microservices Infrastructure with Envoy Outlier Detection (Scenario #48)",
     "scale": "Enterprise scale: Automatically ejecting failing upstream instances without human intervention. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -973,7 +2029,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 49,
+    "id": 99,
     "title": "Design Multi-Tenant Kubernetes Resource Quotas & Hierarchical Namespaces (Scenario #49)",
     "scale": "Enterprise scale: Isolating 200 engineering teams on a shared 2,000-node cluster. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -993,7 +2049,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 50,
+    "id": 100,
     "title": "Design Distributed Time-Series Anomaly Detection with Holt-Winters & ML (Scenario #50)",
     "scale": "Enterprise scale: Evaluating 1,000,000 metric streams for automated alerting deviations. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1013,7 +2069,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 51,
+    "id": 101,
     "title": "Design Distributed Cache Invalidation & Thundering Herd Defense (Scenario #51)",
     "scale": "Enterprise scale: Redis Cluster, Memcached Leases, XFetch Probabilistic TTL. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1033,7 +2089,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 52,
+    "id": 102,
     "title": "Design Kubernetes Cluster Autoscaling with Karpenter & Spot Instances (Scenario #52)",
     "scale": "Enterprise scale: 10,000 nodes scaling in <60 seconds across heterogeneous EC2 instances. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1053,7 +2109,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 53,
+    "id": 103,
     "title": "Design Multi-Region Kafka MirrorMaker 2 Event Synchronization (Scenario #53)",
     "scale": "Enterprise scale: 100,000 msgs/sec cross-datacenter replication with offset translation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1073,7 +2129,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 54,
+    "id": 104,
     "title": "Design Distributed Tracing Pipeline with OpenTelemetry & ClickHouse (Scenario #54)",
     "scale": "Enterprise scale: 500k spans/sec, tail-based sampling, sub-second trace latency. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1093,7 +2149,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 55,
+    "id": 105,
     "title": "Design Global API Gateway Rate Limiting with Redis Cell & Leaky Bucket (Scenario #55)",
     "scale": "Enterprise scale: 100k RPS, multi-datacenter distributed rate limiting, local fallback. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1113,7 +2169,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 56,
+    "id": 106,
     "title": "Design Zero-Downtime Kubernetes Control Plane Upgrade Engine (Scenario #56)",
     "scale": "Enterprise scale: Upgrading etcd and apiservers across 100 clusters without dropping pods. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1133,7 +2189,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 57,
+    "id": 107,
     "title": "Design Distributed Object Storage with MinIO and Erasure Coding (Scenario #57)",
     "scale": "Enterprise scale: 10 Petabytes, 16+4 Reed-Solomon parity, multi-tenant S3 compliance. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1153,7 +2209,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 58,
+    "id": 108,
     "title": "Design Edge Compute Serverless Worker Platform with V8 Isolates (Scenario #58)",
     "scale": "Enterprise scale: Cold start <5ms, 1,000,000 requests/sec, sandboxed JavaScript execution. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1173,7 +2229,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 59,
+    "id": 109,
     "title": "Design Automated Chaos Engineering Platform with Chaos Mesh (Scenario #59)",
     "scale": "Enterprise scale: Injecting packet drops, CPU stress, and disk corruption safely in production. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1193,7 +2249,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 60,
+    "id": 110,
     "title": "Design Multi-Cloud Kubernetes Networking with Cilium Mesh & WireGuard (Scenario #60)",
     "scale": "Enterprise scale: Encrypted pod-to-pod cross-cluster routing across AWS and Azure. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1213,7 +2269,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 61,
+    "id": 111,
     "title": "Design PostgreSQL Connection Pooling & Read Scaling with PgBouncer (Scenario #61)",
     "scale": "Enterprise scale: 10,000 concurrent client connections routed to 32 DB pool slots. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1233,7 +2289,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 62,
+    "id": 112,
     "title": "Design High-Throughput Webhook Dispatching Engine with Backoff Jitter (Scenario #62)",
     "scale": "Enterprise scale: 50 million webhooks/day, token bucket per customer, dead-letter storage. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1253,7 +2309,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 63,
+    "id": 113,
     "title": "Design Distributed Lock Manager with Redlock Algorithm & Fencing Tokens (Scenario #63)",
     "scale": "Enterprise scale: Preventing concurrent batch job overlap across independent servers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1273,7 +2329,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 64,
+    "id": 114,
     "title": "Design Global CDN Cache Purging & Invalidation Engine (Scenario #64)",
     "scale": "Enterprise scale: Purging 1,000,000 edge cached URLs globally in under 150 milliseconds. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1293,7 +2349,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 65,
+    "id": 115,
     "title": "Design CI/CD Remote Compilation Cache Engine with Bazel & BuildBuddy (Scenario #65)",
     "scale": "Enterprise scale: Cutting build times from 45 minutes to 3 minutes across 500 developers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1313,7 +2369,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 66,
+    "id": 116,
     "title": "Design Automated Database Backup Verification & Restore Sandbox (Scenario #66)",
     "scale": "Enterprise scale: Restoring multi-TB database snapshots nightly with automated data assertions. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1333,7 +2389,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 67,
+    "id": 117,
     "title": "Design Real-Time Network Packet Inspection with Suricata & eBPF (Scenario #67)",
     "scale": "Enterprise scale: 40 Gbps line-rate intrusion detection and signature evaluation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1353,7 +2409,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 68,
+    "id": 118,
     "title": "Design Self-Healing Microservices Infrastructure with Envoy Outlier Detection (Scenario #68)",
     "scale": "Enterprise scale: Automatically ejecting failing upstream instances without human intervention. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1373,7 +2429,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 69,
+    "id": 119,
     "title": "Design Multi-Tenant Kubernetes Resource Quotas & Hierarchical Namespaces (Scenario #69)",
     "scale": "Enterprise scale: Isolating 200 engineering teams on a shared 2,000-node cluster. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1393,7 +2449,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 70,
+    "id": 120,
     "title": "Design Distributed Time-Series Anomaly Detection with Holt-Winters & ML (Scenario #70)",
     "scale": "Enterprise scale: Evaluating 1,000,000 metric streams for automated alerting deviations. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1413,7 +2469,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 71,
+    "id": 121,
     "title": "Design Distributed Cache Invalidation & Thundering Herd Defense (Scenario #71)",
     "scale": "Enterprise scale: Redis Cluster, Memcached Leases, XFetch Probabilistic TTL. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1433,7 +2489,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 72,
+    "id": 122,
     "title": "Design Kubernetes Cluster Autoscaling with Karpenter & Spot Instances (Scenario #72)",
     "scale": "Enterprise scale: 10,000 nodes scaling in <60 seconds across heterogeneous EC2 instances. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1453,7 +2509,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 73,
+    "id": 123,
     "title": "Design Multi-Region Kafka MirrorMaker 2 Event Synchronization (Scenario #73)",
     "scale": "Enterprise scale: 100,000 msgs/sec cross-datacenter replication with offset translation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1473,7 +2529,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 74,
+    "id": 124,
     "title": "Design Distributed Tracing Pipeline with OpenTelemetry & ClickHouse (Scenario #74)",
     "scale": "Enterprise scale: 500k spans/sec, tail-based sampling, sub-second trace latency. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1493,7 +2549,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 75,
+    "id": 125,
     "title": "Design Global API Gateway Rate Limiting with Redis Cell & Leaky Bucket (Scenario #75)",
     "scale": "Enterprise scale: 100k RPS, multi-datacenter distributed rate limiting, local fallback. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1513,7 +2569,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 76,
+    "id": 126,
     "title": "Design Zero-Downtime Kubernetes Control Plane Upgrade Engine (Scenario #76)",
     "scale": "Enterprise scale: Upgrading etcd and apiservers across 100 clusters without dropping pods. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1533,7 +2589,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 77,
+    "id": 127,
     "title": "Design Distributed Object Storage with MinIO and Erasure Coding (Scenario #77)",
     "scale": "Enterprise scale: 10 Petabytes, 16+4 Reed-Solomon parity, multi-tenant S3 compliance. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1553,7 +2609,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 78,
+    "id": 128,
     "title": "Design Edge Compute Serverless Worker Platform with V8 Isolates (Scenario #78)",
     "scale": "Enterprise scale: Cold start <5ms, 1,000,000 requests/sec, sandboxed JavaScript execution. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1573,7 +2629,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 79,
+    "id": 129,
     "title": "Design Automated Chaos Engineering Platform with Chaos Mesh (Scenario #79)",
     "scale": "Enterprise scale: Injecting packet drops, CPU stress, and disk corruption safely in production. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1593,7 +2649,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 80,
+    "id": 130,
     "title": "Design Multi-Cloud Kubernetes Networking with Cilium Mesh & WireGuard (Scenario #80)",
     "scale": "Enterprise scale: Encrypted pod-to-pod cross-cluster routing across AWS and Azure. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1613,7 +2669,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 81,
+    "id": 131,
     "title": "Design PostgreSQL Connection Pooling & Read Scaling with PgBouncer (Scenario #81)",
     "scale": "Enterprise scale: 10,000 concurrent client connections routed to 32 DB pool slots. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1633,7 +2689,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 82,
+    "id": 132,
     "title": "Design High-Throughput Webhook Dispatching Engine with Backoff Jitter (Scenario #82)",
     "scale": "Enterprise scale: 50 million webhooks/day, token bucket per customer, dead-letter storage. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1653,7 +2709,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 83,
+    "id": 133,
     "title": "Design Distributed Lock Manager with Redlock Algorithm & Fencing Tokens (Scenario #83)",
     "scale": "Enterprise scale: Preventing concurrent batch job overlap across independent servers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1673,7 +2729,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 84,
+    "id": 134,
     "title": "Design Global CDN Cache Purging & Invalidation Engine (Scenario #84)",
     "scale": "Enterprise scale: Purging 1,000,000 edge cached URLs globally in under 150 milliseconds. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1693,7 +2749,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 85,
+    "id": 135,
     "title": "Design CI/CD Remote Compilation Cache Engine with Bazel & BuildBuddy (Scenario #85)",
     "scale": "Enterprise scale: Cutting build times from 45 minutes to 3 minutes across 500 developers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1713,7 +2769,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 86,
+    "id": 136,
     "title": "Design Automated Database Backup Verification & Restore Sandbox (Scenario #86)",
     "scale": "Enterprise scale: Restoring multi-TB database snapshots nightly with automated data assertions. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1733,7 +2789,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 87,
+    "id": 137,
     "title": "Design Real-Time Network Packet Inspection with Suricata & eBPF (Scenario #87)",
     "scale": "Enterprise scale: 40 Gbps line-rate intrusion detection and signature evaluation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1753,7 +2809,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 88,
+    "id": 138,
     "title": "Design Self-Healing Microservices Infrastructure with Envoy Outlier Detection (Scenario #88)",
     "scale": "Enterprise scale: Automatically ejecting failing upstream instances without human intervention. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1773,7 +2829,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 89,
+    "id": 139,
     "title": "Design Multi-Tenant Kubernetes Resource Quotas & Hierarchical Namespaces (Scenario #89)",
     "scale": "Enterprise scale: Isolating 200 engineering teams on a shared 2,000-node cluster. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1793,7 +2849,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 90,
+    "id": 140,
     "title": "Design Distributed Time-Series Anomaly Detection with Holt-Winters & ML (Scenario #90)",
     "scale": "Enterprise scale: Evaluating 1,000,000 metric streams for automated alerting deviations. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1813,7 +2869,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 91,
+    "id": 141,
     "title": "Design Distributed Cache Invalidation & Thundering Herd Defense (Scenario #91)",
     "scale": "Enterprise scale: Redis Cluster, Memcached Leases, XFetch Probabilistic TTL. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1833,7 +2889,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 92,
+    "id": 142,
     "title": "Design Kubernetes Cluster Autoscaling with Karpenter & Spot Instances (Scenario #92)",
     "scale": "Enterprise scale: 10,000 nodes scaling in <60 seconds across heterogeneous EC2 instances. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1853,7 +2909,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 93,
+    "id": 143,
     "title": "Design Multi-Region Kafka MirrorMaker 2 Event Synchronization (Scenario #93)",
     "scale": "Enterprise scale: 100,000 msgs/sec cross-datacenter replication with offset translation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1873,7 +2929,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 94,
+    "id": 144,
     "title": "Design Distributed Tracing Pipeline with OpenTelemetry & ClickHouse (Scenario #94)",
     "scale": "Enterprise scale: 500k spans/sec, tail-based sampling, sub-second trace latency. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1893,7 +2949,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 95,
+    "id": 145,
     "title": "Design Global API Gateway Rate Limiting with Redis Cell & Leaky Bucket (Scenario #95)",
     "scale": "Enterprise scale: 100k RPS, multi-datacenter distributed rate limiting, local fallback. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1913,7 +2969,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 96,
+    "id": 146,
     "title": "Design Zero-Downtime Kubernetes Control Plane Upgrade Engine (Scenario #96)",
     "scale": "Enterprise scale: Upgrading etcd and apiservers across 100 clusters without dropping pods. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1933,7 +2989,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 97,
+    "id": 147,
     "title": "Design Distributed Object Storage with MinIO and Erasure Coding (Scenario #97)",
     "scale": "Enterprise scale: 10 Petabytes, 16+4 Reed-Solomon parity, multi-tenant S3 compliance. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1953,7 +3009,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 98,
+    "id": 148,
     "title": "Design Edge Compute Serverless Worker Platform with V8 Isolates (Scenario #98)",
     "scale": "Enterprise scale: Cold start <5ms, 1,000,000 requests/sec, sandboxed JavaScript execution. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1973,7 +3029,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 99,
+    "id": 149,
     "title": "Design Automated Chaos Engineering Platform with Chaos Mesh (Scenario #99)",
     "scale": "Enterprise scale: Injecting packet drops, CPU stress, and disk corruption safely in production. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -1993,7 +3049,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 100,
+    "id": 150,
     "title": "Design Multi-Cloud Kubernetes Networking with Cilium Mesh & WireGuard (Scenario #100)",
     "scale": "Enterprise scale: Encrypted pod-to-pod cross-cluster routing across AWS and Azure. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2013,7 +3069,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 101,
+    "id": 151,
     "title": "Design PostgreSQL Connection Pooling & Read Scaling with PgBouncer (Scenario #101)",
     "scale": "Enterprise scale: 10,000 concurrent client connections routed to 32 DB pool slots. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2033,7 +3089,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 102,
+    "id": 152,
     "title": "Design High-Throughput Webhook Dispatching Engine with Backoff Jitter (Scenario #102)",
     "scale": "Enterprise scale: 50 million webhooks/day, token bucket per customer, dead-letter storage. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2053,7 +3109,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 103,
+    "id": 153,
     "title": "Design Distributed Lock Manager with Redlock Algorithm & Fencing Tokens (Scenario #103)",
     "scale": "Enterprise scale: Preventing concurrent batch job overlap across independent servers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2073,7 +3129,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 104,
+    "id": 154,
     "title": "Design Global CDN Cache Purging & Invalidation Engine (Scenario #104)",
     "scale": "Enterprise scale: Purging 1,000,000 edge cached URLs globally in under 150 milliseconds. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2093,7 +3149,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 105,
+    "id": 155,
     "title": "Design CI/CD Remote Compilation Cache Engine with Bazel & BuildBuddy (Scenario #105)",
     "scale": "Enterprise scale: Cutting build times from 45 minutes to 3 minutes across 500 developers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2113,7 +3169,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 106,
+    "id": 156,
     "title": "Design Automated Database Backup Verification & Restore Sandbox (Scenario #106)",
     "scale": "Enterprise scale: Restoring multi-TB database snapshots nightly with automated data assertions. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2133,7 +3189,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 107,
+    "id": 157,
     "title": "Design Real-Time Network Packet Inspection with Suricata & eBPF (Scenario #107)",
     "scale": "Enterprise scale: 40 Gbps line-rate intrusion detection and signature evaluation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2153,7 +3209,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 108,
+    "id": 158,
     "title": "Design Self-Healing Microservices Infrastructure with Envoy Outlier Detection (Scenario #108)",
     "scale": "Enterprise scale: Automatically ejecting failing upstream instances without human intervention. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2173,7 +3229,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 109,
+    "id": 159,
     "title": "Design Multi-Tenant Kubernetes Resource Quotas & Hierarchical Namespaces (Scenario #109)",
     "scale": "Enterprise scale: Isolating 200 engineering teams on a shared 2,000-node cluster. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2193,7 +3249,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 110,
+    "id": 160,
     "title": "Design Distributed Time-Series Anomaly Detection with Holt-Winters & ML (Scenario #110)",
     "scale": "Enterprise scale: Evaluating 1,000,000 metric streams for automated alerting deviations. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2213,7 +3269,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 111,
+    "id": 161,
     "title": "Design Distributed Cache Invalidation & Thundering Herd Defense (Scenario #111)",
     "scale": "Enterprise scale: Redis Cluster, Memcached Leases, XFetch Probabilistic TTL. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2233,7 +3289,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 112,
+    "id": 162,
     "title": "Design Kubernetes Cluster Autoscaling with Karpenter & Spot Instances (Scenario #112)",
     "scale": "Enterprise scale: 10,000 nodes scaling in <60 seconds across heterogeneous EC2 instances. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2253,7 +3309,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 113,
+    "id": 163,
     "title": "Design Multi-Region Kafka MirrorMaker 2 Event Synchronization (Scenario #113)",
     "scale": "Enterprise scale: 100,000 msgs/sec cross-datacenter replication with offset translation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2273,7 +3329,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 114,
+    "id": 164,
     "title": "Design Distributed Tracing Pipeline with OpenTelemetry & ClickHouse (Scenario #114)",
     "scale": "Enterprise scale: 500k spans/sec, tail-based sampling, sub-second trace latency. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2293,7 +3349,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 115,
+    "id": 165,
     "title": "Design Global API Gateway Rate Limiting with Redis Cell & Leaky Bucket (Scenario #115)",
     "scale": "Enterprise scale: 100k RPS, multi-datacenter distributed rate limiting, local fallback. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2313,7 +3369,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 116,
+    "id": 166,
     "title": "Design Zero-Downtime Kubernetes Control Plane Upgrade Engine (Scenario #116)",
     "scale": "Enterprise scale: Upgrading etcd and apiservers across 100 clusters without dropping pods. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2333,7 +3389,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 117,
+    "id": 167,
     "title": "Design Distributed Object Storage with MinIO and Erasure Coding (Scenario #117)",
     "scale": "Enterprise scale: 10 Petabytes, 16+4 Reed-Solomon parity, multi-tenant S3 compliance. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2353,7 +3409,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 118,
+    "id": 168,
     "title": "Design Edge Compute Serverless Worker Platform with V8 Isolates (Scenario #118)",
     "scale": "Enterprise scale: Cold start <5ms, 1,000,000 requests/sec, sandboxed JavaScript execution. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2373,7 +3429,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 119,
+    "id": 169,
     "title": "Design Automated Chaos Engineering Platform with Chaos Mesh (Scenario #119)",
     "scale": "Enterprise scale: Injecting packet drops, CPU stress, and disk corruption safely in production. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2393,7 +3449,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 120,
+    "id": 170,
     "title": "Design Multi-Cloud Kubernetes Networking with Cilium Mesh & WireGuard (Scenario #120)",
     "scale": "Enterprise scale: Encrypted pod-to-pod cross-cluster routing across AWS and Azure. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2413,7 +3469,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 121,
+    "id": 171,
     "title": "Design PostgreSQL Connection Pooling & Read Scaling with PgBouncer (Scenario #121)",
     "scale": "Enterprise scale: 10,000 concurrent client connections routed to 32 DB pool slots. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2433,7 +3489,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 122,
+    "id": 172,
     "title": "Design High-Throughput Webhook Dispatching Engine with Backoff Jitter (Scenario #122)",
     "scale": "Enterprise scale: 50 million webhooks/day, token bucket per customer, dead-letter storage. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2453,7 +3509,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 123,
+    "id": 173,
     "title": "Design Distributed Lock Manager with Redlock Algorithm & Fencing Tokens (Scenario #123)",
     "scale": "Enterprise scale: Preventing concurrent batch job overlap across independent servers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2473,7 +3529,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 124,
+    "id": 174,
     "title": "Design Global CDN Cache Purging & Invalidation Engine (Scenario #124)",
     "scale": "Enterprise scale: Purging 1,000,000 edge cached URLs globally in under 150 milliseconds. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2493,7 +3549,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 125,
+    "id": 175,
     "title": "Design CI/CD Remote Compilation Cache Engine with Bazel & BuildBuddy (Scenario #125)",
     "scale": "Enterprise scale: Cutting build times from 45 minutes to 3 minutes across 500 developers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2513,7 +3569,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 126,
+    "id": 176,
     "title": "Design Automated Database Backup Verification & Restore Sandbox (Scenario #126)",
     "scale": "Enterprise scale: Restoring multi-TB database snapshots nightly with automated data assertions. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2533,7 +3589,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 127,
+    "id": 177,
     "title": "Design Real-Time Network Packet Inspection with Suricata & eBPF (Scenario #127)",
     "scale": "Enterprise scale: 40 Gbps line-rate intrusion detection and signature evaluation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2553,7 +3609,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 128,
+    "id": 178,
     "title": "Design Self-Healing Microservices Infrastructure with Envoy Outlier Detection (Scenario #128)",
     "scale": "Enterprise scale: Automatically ejecting failing upstream instances without human intervention. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2573,7 +3629,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 129,
+    "id": 179,
     "title": "Design Multi-Tenant Kubernetes Resource Quotas & Hierarchical Namespaces (Scenario #129)",
     "scale": "Enterprise scale: Isolating 200 engineering teams on a shared 2,000-node cluster. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2593,7 +3649,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 130,
+    "id": 180,
     "title": "Design Distributed Time-Series Anomaly Detection with Holt-Winters & ML (Scenario #130)",
     "scale": "Enterprise scale: Evaluating 1,000,000 metric streams for automated alerting deviations. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2613,7 +3669,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 131,
+    "id": 181,
     "title": "Design Distributed Cache Invalidation & Thundering Herd Defense (Scenario #131)",
     "scale": "Enterprise scale: Redis Cluster, Memcached Leases, XFetch Probabilistic TTL. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2633,7 +3689,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 132,
+    "id": 182,
     "title": "Design Kubernetes Cluster Autoscaling with Karpenter & Spot Instances (Scenario #132)",
     "scale": "Enterprise scale: 10,000 nodes scaling in <60 seconds across heterogeneous EC2 instances. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2653,7 +3709,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 133,
+    "id": 183,
     "title": "Design Multi-Region Kafka MirrorMaker 2 Event Synchronization (Scenario #133)",
     "scale": "Enterprise scale: 100,000 msgs/sec cross-datacenter replication with offset translation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2673,7 +3729,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 134,
+    "id": 184,
     "title": "Design Distributed Tracing Pipeline with OpenTelemetry & ClickHouse (Scenario #134)",
     "scale": "Enterprise scale: 500k spans/sec, tail-based sampling, sub-second trace latency. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2693,7 +3749,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 135,
+    "id": 185,
     "title": "Design Global API Gateway Rate Limiting with Redis Cell & Leaky Bucket (Scenario #135)",
     "scale": "Enterprise scale: 100k RPS, multi-datacenter distributed rate limiting, local fallback. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2713,7 +3769,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 136,
+    "id": 186,
     "title": "Design Zero-Downtime Kubernetes Control Plane Upgrade Engine (Scenario #136)",
     "scale": "Enterprise scale: Upgrading etcd and apiservers across 100 clusters without dropping pods. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2733,7 +3789,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 137,
+    "id": 187,
     "title": "Design Distributed Object Storage with MinIO and Erasure Coding (Scenario #137)",
     "scale": "Enterprise scale: 10 Petabytes, 16+4 Reed-Solomon parity, multi-tenant S3 compliance. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2753,7 +3809,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 138,
+    "id": 188,
     "title": "Design Edge Compute Serverless Worker Platform with V8 Isolates (Scenario #138)",
     "scale": "Enterprise scale: Cold start <5ms, 1,000,000 requests/sec, sandboxed JavaScript execution. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2773,7 +3829,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 139,
+    "id": 189,
     "title": "Design Automated Chaos Engineering Platform with Chaos Mesh (Scenario #139)",
     "scale": "Enterprise scale: Injecting packet drops, CPU stress, and disk corruption safely in production. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2793,7 +3849,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 140,
+    "id": 190,
     "title": "Design Multi-Cloud Kubernetes Networking with Cilium Mesh & WireGuard (Scenario #140)",
     "scale": "Enterprise scale: Encrypted pod-to-pod cross-cluster routing across AWS and Azure. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2813,7 +3869,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 141,
+    "id": 191,
     "title": "Design PostgreSQL Connection Pooling & Read Scaling with PgBouncer (Scenario #141)",
     "scale": "Enterprise scale: 10,000 concurrent client connections routed to 32 DB pool slots. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2833,7 +3889,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 142,
+    "id": 192,
     "title": "Design High-Throughput Webhook Dispatching Engine with Backoff Jitter (Scenario #142)",
     "scale": "Enterprise scale: 50 million webhooks/day, token bucket per customer, dead-letter storage. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2853,7 +3909,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 143,
+    "id": 193,
     "title": "Design Distributed Lock Manager with Redlock Algorithm & Fencing Tokens (Scenario #143)",
     "scale": "Enterprise scale: Preventing concurrent batch job overlap across independent servers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2873,7 +3929,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 144,
+    "id": 194,
     "title": "Design Global CDN Cache Purging & Invalidation Engine (Scenario #144)",
     "scale": "Enterprise scale: Purging 1,000,000 edge cached URLs globally in under 150 milliseconds. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2893,7 +3949,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 145,
+    "id": 195,
     "title": "Design CI/CD Remote Compilation Cache Engine with Bazel & BuildBuddy (Scenario #145)",
     "scale": "Enterprise scale: Cutting build times from 45 minutes to 3 minutes across 500 developers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2913,7 +3969,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 146,
+    "id": 196,
     "title": "Design Automated Database Backup Verification & Restore Sandbox (Scenario #146)",
     "scale": "Enterprise scale: Restoring multi-TB database snapshots nightly with automated data assertions. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2933,7 +3989,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 147,
+    "id": 197,
     "title": "Design Real-Time Network Packet Inspection with Suricata & eBPF (Scenario #147)",
     "scale": "Enterprise scale: 40 Gbps line-rate intrusion detection and signature evaluation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2953,7 +4009,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 148,
+    "id": 198,
     "title": "Design Self-Healing Microservices Infrastructure with Envoy Outlier Detection (Scenario #148)",
     "scale": "Enterprise scale: Automatically ejecting failing upstream instances without human intervention. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2973,7 +4029,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 149,
+    "id": 199,
     "title": "Design Multi-Tenant Kubernetes Resource Quotas & Hierarchical Namespaces (Scenario #149)",
     "scale": "Enterprise scale: Isolating 200 engineering teams on a shared 2,000-node cluster. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -2993,7 +4049,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 150,
+    "id": 200,
     "title": "Design Distributed Time-Series Anomaly Detection with Holt-Winters & ML (Scenario #150)",
     "scale": "Enterprise scale: Evaluating 1,000,000 metric streams for automated alerting deviations. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3013,7 +4069,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 151,
+    "id": 201,
     "title": "Design Distributed Cache Invalidation & Thundering Herd Defense (Scenario #151)",
     "scale": "Enterprise scale: Redis Cluster, Memcached Leases, XFetch Probabilistic TTL. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3033,7 +4089,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 152,
+    "id": 202,
     "title": "Design Kubernetes Cluster Autoscaling with Karpenter & Spot Instances (Scenario #152)",
     "scale": "Enterprise scale: 10,000 nodes scaling in <60 seconds across heterogeneous EC2 instances. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3053,7 +4109,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 153,
+    "id": 203,
     "title": "Design Multi-Region Kafka MirrorMaker 2 Event Synchronization (Scenario #153)",
     "scale": "Enterprise scale: 100,000 msgs/sec cross-datacenter replication with offset translation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3073,7 +4129,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 154,
+    "id": 204,
     "title": "Design Distributed Tracing Pipeline with OpenTelemetry & ClickHouse (Scenario #154)",
     "scale": "Enterprise scale: 500k spans/sec, tail-based sampling, sub-second trace latency. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3093,7 +4149,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 155,
+    "id": 205,
     "title": "Design Global API Gateway Rate Limiting with Redis Cell & Leaky Bucket (Scenario #155)",
     "scale": "Enterprise scale: 100k RPS, multi-datacenter distributed rate limiting, local fallback. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3113,7 +4169,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 156,
+    "id": 206,
     "title": "Design Zero-Downtime Kubernetes Control Plane Upgrade Engine (Scenario #156)",
     "scale": "Enterprise scale: Upgrading etcd and apiservers across 100 clusters without dropping pods. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3133,7 +4189,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 157,
+    "id": 207,
     "title": "Design Distributed Object Storage with MinIO and Erasure Coding (Scenario #157)",
     "scale": "Enterprise scale: 10 Petabytes, 16+4 Reed-Solomon parity, multi-tenant S3 compliance. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3153,7 +4209,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 158,
+    "id": 208,
     "title": "Design Edge Compute Serverless Worker Platform with V8 Isolates (Scenario #158)",
     "scale": "Enterprise scale: Cold start <5ms, 1,000,000 requests/sec, sandboxed JavaScript execution. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3173,7 +4229,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 159,
+    "id": 209,
     "title": "Design Automated Chaos Engineering Platform with Chaos Mesh (Scenario #159)",
     "scale": "Enterprise scale: Injecting packet drops, CPU stress, and disk corruption safely in production. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3193,7 +4249,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 160,
+    "id": 210,
     "title": "Design Multi-Cloud Kubernetes Networking with Cilium Mesh & WireGuard (Scenario #160)",
     "scale": "Enterprise scale: Encrypted pod-to-pod cross-cluster routing across AWS and Azure. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3213,7 +4269,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 161,
+    "id": 211,
     "title": "Design PostgreSQL Connection Pooling & Read Scaling with PgBouncer (Scenario #161)",
     "scale": "Enterprise scale: 10,000 concurrent client connections routed to 32 DB pool slots. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3233,7 +4289,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 162,
+    "id": 212,
     "title": "Design High-Throughput Webhook Dispatching Engine with Backoff Jitter (Scenario #162)",
     "scale": "Enterprise scale: 50 million webhooks/day, token bucket per customer, dead-letter storage. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3253,7 +4309,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 163,
+    "id": 213,
     "title": "Design Distributed Lock Manager with Redlock Algorithm & Fencing Tokens (Scenario #163)",
     "scale": "Enterprise scale: Preventing concurrent batch job overlap across independent servers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3273,7 +4329,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 164,
+    "id": 214,
     "title": "Design Global CDN Cache Purging & Invalidation Engine (Scenario #164)",
     "scale": "Enterprise scale: Purging 1,000,000 edge cached URLs globally in under 150 milliseconds. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3293,7 +4349,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 165,
+    "id": 215,
     "title": "Design CI/CD Remote Compilation Cache Engine with Bazel & BuildBuddy (Scenario #165)",
     "scale": "Enterprise scale: Cutting build times from 45 minutes to 3 minutes across 500 developers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3313,7 +4369,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 166,
+    "id": 216,
     "title": "Design Automated Database Backup Verification & Restore Sandbox (Scenario #166)",
     "scale": "Enterprise scale: Restoring multi-TB database snapshots nightly with automated data assertions. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3333,7 +4389,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 167,
+    "id": 217,
     "title": "Design Real-Time Network Packet Inspection with Suricata & eBPF (Scenario #167)",
     "scale": "Enterprise scale: 40 Gbps line-rate intrusion detection and signature evaluation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3353,7 +4409,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 168,
+    "id": 218,
     "title": "Design Self-Healing Microservices Infrastructure with Envoy Outlier Detection (Scenario #168)",
     "scale": "Enterprise scale: Automatically ejecting failing upstream instances without human intervention. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3373,7 +4429,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 169,
+    "id": 219,
     "title": "Design Multi-Tenant Kubernetes Resource Quotas & Hierarchical Namespaces (Scenario #169)",
     "scale": "Enterprise scale: Isolating 200 engineering teams on a shared 2,000-node cluster. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3393,7 +4449,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 170,
+    "id": 220,
     "title": "Design Distributed Time-Series Anomaly Detection with Holt-Winters & ML (Scenario #170)",
     "scale": "Enterprise scale: Evaluating 1,000,000 metric streams for automated alerting deviations. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3413,7 +4469,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 171,
+    "id": 221,
     "title": "Design Distributed Cache Invalidation & Thundering Herd Defense (Scenario #171)",
     "scale": "Enterprise scale: Redis Cluster, Memcached Leases, XFetch Probabilistic TTL. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3433,7 +4489,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 172,
+    "id": 222,
     "title": "Design Kubernetes Cluster Autoscaling with Karpenter & Spot Instances (Scenario #172)",
     "scale": "Enterprise scale: 10,000 nodes scaling in <60 seconds across heterogeneous EC2 instances. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3453,7 +4509,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 173,
+    "id": 223,
     "title": "Design Multi-Region Kafka MirrorMaker 2 Event Synchronization (Scenario #173)",
     "scale": "Enterprise scale: 100,000 msgs/sec cross-datacenter replication with offset translation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3473,7 +4529,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 174,
+    "id": 224,
     "title": "Design Distributed Tracing Pipeline with OpenTelemetry & ClickHouse (Scenario #174)",
     "scale": "Enterprise scale: 500k spans/sec, tail-based sampling, sub-second trace latency. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3493,7 +4549,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 175,
+    "id": 225,
     "title": "Design Global API Gateway Rate Limiting with Redis Cell & Leaky Bucket (Scenario #175)",
     "scale": "Enterprise scale: 100k RPS, multi-datacenter distributed rate limiting, local fallback. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3513,7 +4569,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 176,
+    "id": 226,
     "title": "Design Zero-Downtime Kubernetes Control Plane Upgrade Engine (Scenario #176)",
     "scale": "Enterprise scale: Upgrading etcd and apiservers across 100 clusters without dropping pods. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3533,7 +4589,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 177,
+    "id": 227,
     "title": "Design Distributed Object Storage with MinIO and Erasure Coding (Scenario #177)",
     "scale": "Enterprise scale: 10 Petabytes, 16+4 Reed-Solomon parity, multi-tenant S3 compliance. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3553,7 +4609,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 178,
+    "id": 228,
     "title": "Design Edge Compute Serverless Worker Platform with V8 Isolates (Scenario #178)",
     "scale": "Enterprise scale: Cold start <5ms, 1,000,000 requests/sec, sandboxed JavaScript execution. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3573,7 +4629,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 179,
+    "id": 229,
     "title": "Design Automated Chaos Engineering Platform with Chaos Mesh (Scenario #179)",
     "scale": "Enterprise scale: Injecting packet drops, CPU stress, and disk corruption safely in production. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3593,7 +4649,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 180,
+    "id": 230,
     "title": "Design Multi-Cloud Kubernetes Networking with Cilium Mesh & WireGuard (Scenario #180)",
     "scale": "Enterprise scale: Encrypted pod-to-pod cross-cluster routing across AWS and Azure. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3613,7 +4669,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 181,
+    "id": 231,
     "title": "Design PostgreSQL Connection Pooling & Read Scaling with PgBouncer (Scenario #181)",
     "scale": "Enterprise scale: 10,000 concurrent client connections routed to 32 DB pool slots. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3633,7 +4689,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 182,
+    "id": 232,
     "title": "Design High-Throughput Webhook Dispatching Engine with Backoff Jitter (Scenario #182)",
     "scale": "Enterprise scale: 50 million webhooks/day, token bucket per customer, dead-letter storage. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3653,7 +4709,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 183,
+    "id": 233,
     "title": "Design Distributed Lock Manager with Redlock Algorithm & Fencing Tokens (Scenario #183)",
     "scale": "Enterprise scale: Preventing concurrent batch job overlap across independent servers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3673,7 +4729,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 184,
+    "id": 234,
     "title": "Design Global CDN Cache Purging & Invalidation Engine (Scenario #184)",
     "scale": "Enterprise scale: Purging 1,000,000 edge cached URLs globally in under 150 milliseconds. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3693,7 +4749,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 185,
+    "id": 235,
     "title": "Design CI/CD Remote Compilation Cache Engine with Bazel & BuildBuddy (Scenario #185)",
     "scale": "Enterprise scale: Cutting build times from 45 minutes to 3 minutes across 500 developers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3713,7 +4769,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 186,
+    "id": 236,
     "title": "Design Automated Database Backup Verification & Restore Sandbox (Scenario #186)",
     "scale": "Enterprise scale: Restoring multi-TB database snapshots nightly with automated data assertions. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3733,7 +4789,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 187,
+    "id": 237,
     "title": "Design Real-Time Network Packet Inspection with Suricata & eBPF (Scenario #187)",
     "scale": "Enterprise scale: 40 Gbps line-rate intrusion detection and signature evaluation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3753,7 +4809,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 188,
+    "id": 238,
     "title": "Design Self-Healing Microservices Infrastructure with Envoy Outlier Detection (Scenario #188)",
     "scale": "Enterprise scale: Automatically ejecting failing upstream instances without human intervention. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3773,7 +4829,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 189,
+    "id": 239,
     "title": "Design Multi-Tenant Kubernetes Resource Quotas & Hierarchical Namespaces (Scenario #189)",
     "scale": "Enterprise scale: Isolating 200 engineering teams on a shared 2,000-node cluster. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3793,7 +4849,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 190,
+    "id": 240,
     "title": "Design Distributed Time-Series Anomaly Detection with Holt-Winters & ML (Scenario #190)",
     "scale": "Enterprise scale: Evaluating 1,000,000 metric streams for automated alerting deviations. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3813,7 +4869,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 191,
+    "id": 241,
     "title": "Design Distributed Cache Invalidation & Thundering Herd Defense (Scenario #191)",
     "scale": "Enterprise scale: Redis Cluster, Memcached Leases, XFetch Probabilistic TTL. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3833,7 +4889,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 192,
+    "id": 242,
     "title": "Design Kubernetes Cluster Autoscaling with Karpenter & Spot Instances (Scenario #192)",
     "scale": "Enterprise scale: 10,000 nodes scaling in <60 seconds across heterogeneous EC2 instances. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3853,7 +4909,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 193,
+    "id": 243,
     "title": "Design Multi-Region Kafka MirrorMaker 2 Event Synchronization (Scenario #193)",
     "scale": "Enterprise scale: 100,000 msgs/sec cross-datacenter replication with offset translation. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3873,7 +4929,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 194,
+    "id": 244,
     "title": "Design Distributed Tracing Pipeline with OpenTelemetry & ClickHouse (Scenario #194)",
     "scale": "Enterprise scale: 500k spans/sec, tail-based sampling, sub-second trace latency. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3893,7 +4949,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 195,
+    "id": 245,
     "title": "Design Global API Gateway Rate Limiting with Redis Cell & Leaky Bucket (Scenario #195)",
     "scale": "Enterprise scale: 100k RPS, multi-datacenter distributed rate limiting, local fallback. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3913,7 +4969,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 196,
+    "id": 246,
     "title": "Design Zero-Downtime Kubernetes Control Plane Upgrade Engine (Scenario #196)",
     "scale": "Enterprise scale: Upgrading etcd and apiservers across 100 clusters without dropping pods. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3933,7 +4989,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 197,
+    "id": 247,
     "title": "Design Distributed Object Storage with MinIO and Erasure Coding (Scenario #197)",
     "scale": "Enterprise scale: 10 Petabytes, 16+4 Reed-Solomon parity, multi-tenant S3 compliance. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3953,7 +5009,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 198,
+    "id": 248,
     "title": "Design Edge Compute Serverless Worker Platform with V8 Isolates (Scenario #198)",
     "scale": "Enterprise scale: Cold start <5ms, 1,000,000 requests/sec, sandboxed JavaScript execution. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3973,7 +5029,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 199,
+    "id": 249,
     "title": "Design Automated Chaos Engineering Platform with Chaos Mesh (Scenario #199)",
     "scale": "Enterprise scale: Injecting packet drops, CPU stress, and disk corruption safely in production. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -3993,7 +5049,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 200,
+    "id": 250,
     "title": "Design Multi-Cloud Kubernetes Networking with Cilium Mesh & WireGuard (Scenario #200)",
     "scale": "Enterprise scale: Encrypted pod-to-pod cross-cluster routing across AWS and Azure. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -4013,7 +5069,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 201,
+    "id": 251,
     "title": "Design PostgreSQL Connection Pooling & Read Scaling with PgBouncer (Scenario #201)",
     "scale": "Enterprise scale: 10,000 concurrent client connections routed to 32 DB pool slots. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -4033,7 +5089,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 202,
+    "id": 252,
     "title": "Design High-Throughput Webhook Dispatching Engine with Backoff Jitter (Scenario #202)",
     "scale": "Enterprise scale: 50 million webhooks/day, token bucket per customer, dead-letter storage. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -4053,7 +5109,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 203,
+    "id": 253,
     "title": "Design Distributed Lock Manager with Redlock Algorithm & Fencing Tokens (Scenario #203)",
     "scale": "Enterprise scale: Preventing concurrent batch job overlap across independent servers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -4073,7 +5129,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 204,
+    "id": 254,
     "title": "Design Global CDN Cache Purging & Invalidation Engine (Scenario #204)",
     "scale": "Enterprise scale: Purging 1,000,000 edge cached URLs globally in under 150 milliseconds. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [
@@ -4093,7 +5149,7 @@ window.SYSTEM_DESIGN_BLUEPRINTS = [
     ]
   },
   {
-    "id": 205,
+    "id": 255,
     "title": "Design CI/CD Remote Compilation Cache Engine with Bazel & BuildBuddy (Scenario #205)",
     "scale": "Enterprise scale: Cutting build times from 45 minutes to 3 minutes across 500 developers. Highly available with sub-second failover and 99.999% SLA.",
     "requirements": [

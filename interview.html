@@ -736,7 +736,7 @@
     </button>
     <button class="master-tab-btn" id="tabSystemDesign" data-view="design">
       <span>🏗️ System Design</span>
-      <span class="tab-badge" id="designBadge">205 Blueprints</span>
+      <span class="tab-badge" id="designBadge">255 Blueprints</span>
     </button>
     <button class="master-tab-btn" id="tabBehavioral" data-view="behavioral">
       <span>🎭 Behavioral &amp; Leadership</span>
@@ -777,8 +777,8 @@
     <!-- Filter Bar for 500+ FAANG Case Studies -->
   <div class="filter-bar" id="scenariosFilterBar" style="display: none;">
     <button class="filter-btn active" data-company="all">All (510)</button>
+    <button class="filter-btn" data-company="AWS / Amazon" style="border-color: rgba(255, 153, 0, 0.4); color: #fb923c;">☁️ AWS / Amazon (75)</button>
     <button class="filter-btn" data-company="Google">Google (65)</button>
-    <button class="filter-btn" data-company="AWS / Amazon">AWS / Amazon (75)</button>
     <button class="filter-btn" data-company="Meta / Facebook">Meta / Facebook (60)</button>
     <button class="filter-btn" data-company="Netflix">Netflix (55)</button>
     <button class="filter-btn" data-company="Uber">Uber (50)</button>
@@ -788,6 +788,26 @@
     <button class="filter-btn" data-company="Microsoft / Apple">Microsoft / Apple (40)</button>
     <button class="filter-btn" data-company="Datadog / Snowflake / Spotify">Datadog / Spotify (35)</button>
     <button class="filter-btn" data-company="bookmarks" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">⭐ Starred (<span id="csBookmarkCount">0</span>)</button>
+  </div>
+
+  <!-- Filter Bar for 255 System Design Blueprints -->
+  <div class="filter-bar" id="designFilterBar" style="display: none;">
+    <button class="filter-btn active" data-dcat="all">All Designs (255)</button>
+    <button class="filter-btn" data-dcat="aws" style="border-color: rgba(255, 153, 0, 0.45); color: #fb923c; background: rgba(255, 153, 0, 0.1); font-weight: 700;">☁️ AWS Cloud Architectures (51)</button>
+    <button class="filter-btn" data-dcat="k8s">☸️ Kubernetes &amp; Containers</button>
+    <button class="filter-btn" data-dcat="storage">💾 Storage &amp; Databases</button>
+    <button class="filter-btn" data-dcat="security">🛡️ Security &amp; Zero Trust</button>
+    <button class="filter-btn" data-dcat="observability">📊 Observability &amp; Telemetry</button>
+    <button class="filter-btn" data-dcat="networking">🌐 Edge, Anycast &amp; DDoS</button>
+    <button class="filter-btn" data-dcat="cicd">🚀 CI/CD &amp; GitOps</button>
+  </div>
+
+  <!-- Filter Bar for 105 Behavioral Scenarios -->
+  <div class="filter-bar" id="behavioralFilterBar" style="display: none;">
+    <button class="filter-btn active" data-bcat="all">All Scenarios (105)</button>
+    <button class="filter-btn" data-bcat="amazon" style="border-color: rgba(255, 153, 0, 0.45); color: #fb923c; font-weight: 700;">📦 Amazon 16 LPs (81)</button>
+    <button class="filter-btn" data-bcat="google">🔍 Googleyness &amp; SRE</button>
+    <button class="filter-btn" data-bcat="meta">⚡ Meta &amp; Netflix Culture</button>
   </div>
 
   <div class="bank-controls">
@@ -916,14 +936,46 @@ document.addEventListener("DOMContentLoaded", () => {
   const cramDb = window.CRAM_SHEET_POINTS || [];
 
   // Tab Switching
+  const designFilterBar = document.getElementById("designFilterBar");
+  const behavioralFilterBar = document.getElementById("behavioralFilterBar");
+
+  let activeDesignCat = "all";
+  let activeBehavioralCat = "all";
+
   const allTabs = [
     { btn: tabBank, view: "bank", cont: bankContainer, bar: bankFilterBar, load: loadMoreBankContainer },
     { btn: tabScenarios, view: "scenarios", cont: scenariosContainer, bar: scenariosFilterBar, load: loadMoreScenariosContainer },
-    { btn: tabSystemDesign, view: "design", cont: designContainer, load: loadMoreDesignContainer },
-    { btn: tabBehavioral, view: "behavioral", cont: behavioralContainer, load: loadMoreBehavioralContainer },
+    { btn: tabSystemDesign, view: "design", cont: designContainer, bar: designFilterBar, load: loadMoreDesignContainer },
+    { btn: tabBehavioral, view: "behavioral", cont: behavioralContainer, bar: behavioralFilterBar, load: loadMoreBehavioralContainer },
     { btn: tabMock, view: "mock", cont: mockContainer },
     { btn: tabCram, view: "cram", cont: cramContainer }
   ];
+
+  // Design filter clicks
+  if (designFilterBar) {
+    designFilterBar.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        designFilterBar.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeDesignCat = btn.dataset.dcat;
+        designLimit = 15;
+        applyFilters();
+      });
+    });
+  }
+
+  // Behavioral filter clicks
+  if (behavioralFilterBar) {
+    behavioralFilterBar.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        behavioralFilterBar.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeBehavioralCat = btn.dataset.bcat;
+        behavioralLimit = 15;
+        applyFilters();
+      });
+    });
+  }
 
   allTabs.forEach(t => {
     t.btn.addEventListener("click", () => {
@@ -1188,9 +1240,30 @@ document.addEventListener("DOMContentLoaded", () => {
     attachAccordions(scenariosContainer);
   }
 
-  // 3. Render 200+ System Design Blueprints with Pagination
+  // 3. Render 255 System Design Blueprints with Pagination & AWS Filter
   function renderSystemDesigns() {
     const filtered = designDb.filter(item => {
+      // Category filter
+      if (activeDesignCat !== "all") {
+        const itemTags = (item.tags || []).map(t => t.toLowerCase());
+        const itemTitle = item.title.toLowerCase();
+        if (activeDesignCat === "aws") {
+          if (!itemTags.includes("aws") && !itemTitle.includes("aws")) return false;
+        } else if (activeDesignCat === "k8s") {
+          if (!itemTags.includes("kubernetes") && !itemTags.includes("docker") && !itemTags.includes("k8s-scaling") && !itemTitle.includes("kubernetes")) return false;
+        } else if (activeDesignCat === "storage") {
+          if (!itemTags.includes("storage") && !itemTags.includes("database") && !itemTags.includes("postgres") && !itemTags.includes("s3")) return false;
+        } else if (activeDesignCat === "security") {
+          if (!itemTags.includes("security") && !itemTags.includes("vault") && !itemTags.includes("zero-trust") && !itemTags.includes("ids-security")) return false;
+        } else if (activeDesignCat === "observability") {
+          if (!itemTags.includes("observability") && !itemTags.includes("monitoring") && !itemTags.includes("prometheus") && !itemTags.includes("tracing")) return false;
+        } else if (activeDesignCat === "networking") {
+          if (!itemTags.includes("networking") && !itemTags.includes("anycast") && !itemTags.includes("ddos") && !itemTags.includes("ebpf")) return false;
+        } else if (activeDesignCat === "cicd") {
+          if (!itemTags.includes("cicd") && !itemTags.includes("gitops") && !itemTags.includes("bazel-builds")) return false;
+        }
+      }
+
       if (searchQuery !== "") {
         const text = (item.title + " " + item.scale + " " + item.deepDive + " " + (item.tags || []).join(" ")).toLowerCase();
         if (!text.includes(searchQuery)) return false;
@@ -1257,9 +1330,21 @@ document.addEventListener("DOMContentLoaded", () => {
     attachAccordions(designContainer);
   }
 
-  // 4. Render 100+ Behavioral Scenarios with Pagination
+  // 4. Render 105 Behavioral Scenarios with Category Filter
   function renderBehavioral() {
     const filtered = behavioralDb.filter(item => {
+      if (activeBehavioralCat !== "all") {
+        const comp = (item.company || "").toLowerCase();
+        const cat = (item.category || "").toLowerCase();
+        if (activeBehavioralCat === "amazon") {
+          if (!comp.includes("amazon") && !comp.includes("aws") && !cat.includes("leadership")) return false;
+        } else if (activeBehavioralCat === "google") {
+          if (!comp.includes("google") && !cat.includes("googleyness")) return false;
+        } else if (activeBehavioralCat === "meta") {
+          if (!comp.includes("meta") && !comp.includes("netflix") && !cat.includes("culture")) return false;
+        }
+      }
+
       if (searchQuery !== "") {
         const text = (item.question + " " + item.category + " " + item.company + " " + item.starAnswer.action).toLowerCase();
         if (!text.includes(searchQuery)) return false;
